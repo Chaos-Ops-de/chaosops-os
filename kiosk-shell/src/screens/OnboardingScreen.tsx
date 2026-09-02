@@ -1,16 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, TextInput, View } from 'react-native'
-import {
-  Gremlin,
-  PillButton,
-  StickerCard,
-  DashedDivider,
-  Text,
-  usePalette,
-  spacing,
-  radii,
-  webFontStack,
-} from '@chaos-ops-de/design'
+import { Gremlin, PillButton, StickerCard, DashedDivider, Text } from '@chaos-ops-de/design/primitives'
+import { usePalette, spacing, radii, webFontStack } from '@chaos-ops-de/design'
 import loginGremlin from '@chaos-ops-de/design/assets/gremlins/login.png'
 import { QrCode } from '../QrCode'
 import { getNetworks, getOnboarding, type Network, type Onboarding, type Status } from '../api'
@@ -178,7 +169,7 @@ export function OnboardingScreen({ status, online, onConnect, onBackToDisplay }:
                   borderRadius: radii.md,
                   padding: spacing.md,
                   fontSize: 18,
-                  fontFamily: fontFamilies.body,
+                  fontFamily: webFontStack.body,
                   color: palette.ink,
                 }}
               />
