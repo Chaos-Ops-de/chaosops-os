@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=ChaosOps
+Description=ChaosOps kiosk boot splash (logo + spinner)
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/chaosops
+ScriptFile=/usr/share/plymouth/themes/chaosops/chaosops.script
