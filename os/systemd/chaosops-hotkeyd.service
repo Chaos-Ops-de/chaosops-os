@@ -11,7 +11,8 @@ Group=chaosops-agent
 # Reads raw evdev devices via libinput; that's what the "input" group grants.
 SupplementaryGroups=input
 Environment=NODE_ENV=production
-Environment=WIFI_AGENT_URL=http://127.0.0.1:8080
+# hotkeyd.js reads CHAOSOPS_AGENT_URL (default http://127.0.0.1:8080).
+Environment=CHAOSOPS_AGENT_URL=http://127.0.0.1:8080
 EnvironmentFile=-/etc/chaosops/wifi-agent.env
 WorkingDirectory=/opt/chaosops/wifi-agent
 # TODO(workstream C): confirm entrypoint against wifi-agent's documented build

@@ -1,0 +1,21 @@
+#!/bin/sh
+# live-build configuration for ChaosOps OS.
+# Invoked by `lb config` (see image/build.sh). Debian 12 (bookworm), amd64,
+# a hybrid ISO that also writes straight to a USB stick with `dd`.
+set -e
+
+lb config noauto \
+  --distribution bookworm \
+  --architecture amd64 \
+  --binary-images iso-hybrid \
+  --archive-areas "main contrib non-free non-free-firmware" \
+  --debian-installer none \
+  --memtest none \
+  --apt-recommends false \
+  --firmware-chroot true \
+  --firmware-binary true \
+  --bootloaders "syslinux,grub-efi" \
+  --iso-application "ChaosOps OS" \
+  --iso-volume "CHAOSOPS_OS" \
+  --bootappend-live "boot=live components username=kiosk quiet splash loglevel=0 rd.systemd.show_status=false vt.global_cursor_default=0 consoleblank=0 plymouth.ignore-serial-consoles" \
+  "${@}"
