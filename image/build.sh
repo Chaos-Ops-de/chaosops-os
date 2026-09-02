@@ -3,14 +3,20 @@
 # with live-build. Runs as root inside the Debian builder container (see
 # image/Dockerfile); the repo is mounted at /repo. Not meant to run on the host
 # directly — use `make image`, which wraps this in Docker.
+#
+# IMPORTANT: live-build (debootstrap) must mknod device nodes into its chroot,
+# which fails on the /repo bind mount (Docker Desktop mounts it nodev/noexec).
+# So the whole build runs on the container's native fs at /build; we only READ
+# inputs from /repo and WRITE the finished ISO back to /repo/image/out.
 set -euo pipefail
 
 REPO="${REPO:-/repo}"
 IMAGE_DIR="$REPO/image"
 OUT_DIR="$IMAGE_DIR/out"
-INC="$IMAGE_DIR/config/includes.chroot"
+BUILD="/build"                    # container-native fs (supports mknod under --privileged)
+INC="$BUILD/config/includes.chroot"
 
-echo "==> ChaosOps OS image build"
+echo "==> ChaosOps OS image build (workdir: $BUILD)"
 
 # --- Preconditions -------------------------------------------------------
 if [ ! -d "$REPO/kiosk-shell/dist" ]; then
@@ -22,10 +28,17 @@ if [ ! -f "$REPO/wifi-agent/src/server.js" ]; then
   exit 1
 fi
 
+# --- Fresh build tree on the native fs; seed the live-build config -------
+rm -rf "$BUILD"
+mkdir -p "$BUILD"
+cp -r "$IMAGE_DIR/auto" "$BUILD/"
+mkdir -p "$BUILD/config/package-lists" "$BUILD/config/hooks"
+cp -r "$IMAGE_DIR/config/package-lists/." "$BUILD/config/package-lists/"
+cp -r "$IMAGE_DIR/config/hooks/."         "$BUILD/config/hooks/"
+
 # --- Assemble config/includes.chroot from the canonical os/ + app payloads
-# (kept out of git; os/ is the single source of truth). --------------------
+# (os/ is the single source of truth; nothing generated is committed). --------
 echo "==> assembling includes.chroot"
-rm -rf "$INC"
 install -d \
   "$INC/etc/systemd/system" \
   "$INC/etc/systemd/logind.conf.d" \
@@ -60,15 +73,10 @@ cp -r "$REPO/wifi-agent/src/."     "$INC/opt/chaosops/wifi-agent/"
 cp    "$REPO/wifi-agent/README.md" "$INC/opt/chaosops/wifi-agent/README.md" 2>/dev/null || true
 
 # --- Run live-build ------------------------------------------------------
-BUILD="$IMAGE_DIR/.build"
-rm -rf "$BUILD"
-mkdir -p "$BUILD"
-cp -r "$IMAGE_DIR/auto" "$IMAGE_DIR/config" "$BUILD/"
 cd "$BUILD"
-
 echo "==> lb config"
 lb config
-echo "==> lb build (this downloads a Debian base and can take 15-40 min)"
+echo "==> lb build (debootstrap + squashfs + xorriso; can take 15-40 min, longer under emulation)"
 lb build
 
 # --- Collect artifact ----------------------------------------------------
