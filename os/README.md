@@ -47,4 +47,6 @@ user) — see `wifi-agent/README.md` for the exact chords and mechanism:
 So the hotkeys keep working while the ChaosOps display is showing, the kiosk-shell
 keeps the top browser frame and embeds the display in an `<iframe>` rather than
 navigating away. That requires the display route to permit framing from the
-kiosk origin — see the "Known follow-up" in `image/README.md`.
+kiosk origin — done in the ChaosOps repo (scoped `frame-ancestors
+'self' http://127.0.0.1:8080` on the display routes, PR #48); see the iframe
+note in `image/README.md`.

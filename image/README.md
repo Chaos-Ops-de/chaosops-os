@@ -66,13 +66,15 @@ CHAOSOPS_DISPLAY_URL=https://dev.app.chaos-ops.de/register-display
   multi-GB ISO) was not executed here (this dev box is macOS without the Docker
   daemon available in-session). The recipe is complete and standard; run
   `make image` on a machine with Docker to produce the artifact.
-- 🔎 **Known follow-up:** when online, the kiosk-shell embeds
+- ✅ **iframe framing — handled server-side.** When online the kiosk-shell embeds
   `app.chaos-ops.de/register-display` in an `<iframe>` (so the shell keeps the
-  top frame and the hotkeys keep working). The display route must therefore
-  allow framing from the kiosk origin — i.e. send
-  `Content-Security-Policy: frame-ancestors 'self' http://127.0.0.1:8080` (or
-  drop `X-Frame-Options: DENY`) for `/register-display`. If the product refuses
-  framing, switch the online branch in `kiosk-shell/src/App.tsx` to a full
-  `window.location` navigation — but then a "back to WiFi" hotkey needs the
-  agent to relaunch Chromium at `http://127.0.0.1:8080/` instead of relying on
-  the in-page SSE listener.
+  top frame and the hotkeys keep working). The product's site-wide
+  `X-Frame-Options: SAMEORIGIN` blocked that, so the ChaosOps repo now sends a
+  scoped `Content-Security-Policy: frame-ancestors 'self' http://127.0.0.1:8080`
+  (and drops `X-Frame-Options`) for **only** the display routes
+  (`/register-display`, `/display/`, `/d/`) — see ChaosOps `nginx.conf` +
+  `nginx-traefik.conf`, PR #48 (dev→release). Verified with `nginx -t` + a
+  functional header test. Prod takes effect once that PR is merged/deployed.
+  (Fallback if ever reverted: switch the online branch in
+  `kiosk-shell/src/App.tsx` to a full `window.location` navigation and have the
+  agent relaunch Chromium at `http://127.0.0.1:8080/` for the hotkeys.)
