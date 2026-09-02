@@ -1,0 +1,22 @@
+{
+  "name": "@chaos-ops-de/wifi-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ChaosOps OS local network+control service: serves kiosk-shell, wraps NetworkManager (nmcli), hotkey daemon",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "src/server.js",
+  "bin": {
+    "wifi-agent": "src/server.js",
+    "wifi-agent-hotkeyd": "src/hotkeyd.js"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "start:mock": "CHAOSOPS_NM_BACKEND=mock node src/server.js",
+    "hotkeyd": "node src/hotkeyd.js",
+    "test": "node --test test/"
+  },
+  "dependencies": {}
+}
