@@ -16,7 +16,7 @@
     "start": "node src/server.js",
     "start:mock": "CHAOSOPS_NM_BACKEND=mock node src/server.js",
     "hotkeyd": "node src/hotkeyd.js",
-    "test": "node --test test/"
+    "test": "node --test \"test/**/*.test.js\""
   },
   "dependencies": {}
 }
