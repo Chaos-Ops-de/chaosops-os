@@ -1,0 +1,42 @@
+#!/bin/sh
+# ChaosOps kiosk session launcher — run by chaosops-kiosk.service as the
+# unprivileged "kiosk" user on tty1. Waits for the wifi-agent, then launches
+# cage (single-window Wayland kiosk compositor) running Chromium in kiosk mode.
+set -eu
+
+KIOSK_URL="http://127.0.0.1:8080/"
+PROFILE_DIR="/var/lib/chaosops/chromium"
+
+# Wait until the wifi-agent answers on 127.0.0.1:8080 (it also serves the
+# kiosk-shell static build at /). Chromium must never load a broken page.
+i=0
+while ! curl -fsS -o /dev/null --max-time 2 "$KIOSK_URL"; do
+  i=$((i + 1))
+  [ "$i" -ge 60 ] && break   # after ~2min launch anyway; kiosk-shell shows its own error state
+  sleep 2
+done
+
+# cage: no window decorations, no VT switch bindings, one fullscreen client.
+# -d disables the client-side decoration allowance.
+exec cage -d -- chromium \
+  --kiosk "$KIOSK_URL" \
+  --user-data-dir="$PROFILE_DIR" \
+  --ozone-platform=wayland \
+  --enable-features=UseOzonePlatform \
+  --noerrdialogs \
+  --disable-pinch \
+  --overscroll-history-navigation=0 \
+  --disable-features=TranslateUI,OverscrollHistoryNavigation,TouchpadOverscrollHistoryNavigation \
+  --disable-translate \
+  --no-first-run \
+  --disable-infobars \
+  --disable-session-crashed-bubble \
+  --disable-restore-session-state \
+  --disable-component-update \
+  --check-for-update-interval=31536000 \
+  --autoplay-policy=no-user-gesture-required \
+  --password-store=basic \
+  --no-default-browser-check \
+  --disable-background-networking \
+  --disable-dev-shm-usage \
+  --start-fullscreen

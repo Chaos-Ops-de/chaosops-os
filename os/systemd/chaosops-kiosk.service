@@ -1,0 +1,37 @@
+[Unit]
+Description=ChaosOps kiosk session (cage + Chromium on tty1)
+Wants=wifi-agent.service
+After=wifi-agent.service systemd-user-sessions.service plymouth-quit-wait.service
+# Own tty1 outright — no getty may ever appear there.
+Conflicts=getty@tty1.service
+After=getty@tty1.service
+
+[Service]
+Type=simple
+User=kiosk
+Group=kiosk
+SupplementaryGroups=video render input
+# PAM login session on the TTY gives the user a logind seat, which cage needs
+# to open DRM/input devices without root.
+PAMName=login
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+StandardInput=tty-fail
+StandardOutput=journal
+StandardError=journal
+UtmpIdentifier=tty1
+UtmpMode=user
+Environment=XDG_RUNTIME_DIR=/run/user/%U
+ExecStart=/usr/local/bin/chaosops-kiosk
+Restart=always
+RestartSec=2
+
+# NB: keep sandboxing light here — this is a PAM/TTY graphical session; the
+# real confinement is the unprivileged user + cage + Chromium policy.
+NoNewPrivileges=yes
+ProtectHome=yes
+
+[Install]
+WantedBy=graphical.target
