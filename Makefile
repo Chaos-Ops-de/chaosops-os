@@ -21,8 +21,8 @@ agent-test:
 	cd wifi-agent && npm test
 
 image: shell
-	docker build -t $(BUILDER_IMAGE) image
-	docker run --rm --privileged -v "$(ROOT)":/repo $(BUILDER_IMAGE)
+	docker build --platform linux/amd64 -t $(BUILDER_IMAGE) image
+	docker run --rm --platform linux/amd64 --privileged -v "$(ROOT)":/repo $(BUILDER_IMAGE)
 	@echo "Artifact: image/out/chaosops-os-amd64.iso"
 
 clean:
