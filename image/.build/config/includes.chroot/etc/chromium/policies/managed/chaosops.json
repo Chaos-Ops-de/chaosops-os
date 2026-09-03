@@ -1,0 +1,42 @@
+{
+  "URLAllowlist": [
+    "http://127.0.0.1:8080",
+    "https://app.chaos-ops.de",
+    "https://*.chaos-ops.de"
+  ],
+  "URLBlocklist": [
+    "chrome://*",
+    "chrome-untrusted://*",
+    "devtools://*",
+    "file://*",
+    "javascript://*",
+    "view-source:*",
+    "*"
+  ],
+  "DeveloperToolsAvailability": 2,
+  "IncognitoModeAvailability": 1,
+  "BrowserAddPersonEnabled": false,
+  "BrowserGuestModeEnabled": false,
+  "BookmarkBarEnabled": false,
+  "EditBookmarksEnabled": false,
+  "AllowFileSelectionDialogs": false,
+  "PrintingEnabled": false,
+  "TranslateEnabled": false,
+  "PasswordManagerEnabled": false,
+  "AutofillAddressEnabled": false,
+  "AutofillCreditCardEnabled": false,
+  "DefaultBrowserSettingEnabled": false,
+  "TaskManagerEndProcessEnabled": false,
+  "HomepageLocation": "http://127.0.0.1:8080/",
+  "RestoreOnStartup": 4,
+  "RestoreOnStartupURLs": ["http://127.0.0.1:8080/"],
+  "DefaultNotificationsSetting": 2,
+  "DefaultGeolocationSetting": 2,
+  "DefaultPopupsSetting": 2,
+  "PromotionalTabsEnabled": false,
+  "MetricsReportingEnabled": false,
+  "BackgroundModeEnabled": false,
+  "DownloadRestrictions": 3,
+  "ExtensionInstallBlocklist": ["*"],
+  "FullscreenAllowed": true
+}

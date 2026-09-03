@@ -1,0 +1,36 @@
+#!/bin/sh
+# Runs in the binary stage (as root) after the bootloader configs are laid out.
+# The appliance must boot with no visible menu and no key-to-edit escape, so we
+# drive the syslinux/isolinux and grub-efi timeouts to zero. Plymouth takes the
+# screen immediately after.
+set -e
+
+echo "[chaosops-hook] hiding live boot menu"
+
+# --- syslinux / isolinux (BIOS) ---
+for cfg in \
+  binary/isolinux/isolinux.cfg \
+  binary/isolinux/menu.cfg \
+  binary/isolinux/stdmenu.cfg \
+  binary/syslinux/syslinux.cfg
+do
+  [ -f "$cfg" ] || continue
+  # TIMEOUT is in 1/10s; 1 = boot almost immediately. PROMPT 0 = never wait for a key.
+  sed -i 's/^TIMEOUT .*/TIMEOUT 1/I' "$cfg"
+  sed -i 's/^PROMPT .*/PROMPT 0/I' "$cfg"
+  grep -qiE '^TIMEOUT' "$cfg" || echo "TIMEOUT 1" >> "$cfg"
+  grep -qiE '^PROMPT'  "$cfg" || echo "PROMPT 0"  >> "$cfg"
+done
+
+# --- grub-efi (UEFI) ---
+for cfg in binary/boot/grub/grub.cfg binary/EFI/debian/grub.cfg; do
+  [ -f "$cfg" ] || continue
+  if grep -qiE '^set timeout' "$cfg"; then
+    sed -i 's/^set timeout=.*/set timeout=0/I' "$cfg"
+  else
+    sed -i '1i set timeout=0' "$cfg"
+  fi
+  sed -i 's/^set timeout_style=.*/set timeout_style=hidden/I' "$cfg" || true
+done
+
+echo "[chaosops-hook] boot menu hidden"

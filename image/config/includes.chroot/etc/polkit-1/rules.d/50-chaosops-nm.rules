@@ -1,0 +1,9 @@
+// Installed to /etc/polkit-1/rules.d/50-chaosops-nm.rules
+// Allow ONLY the wifi-agent service user to drive NetworkManager (nmcli scan /
+// connect / forget). The kiosk user gets no network control at all.
+polkit.addRule(function(action, subject) {
+  if (action.id.indexOf("org.freedesktop.NetworkManager.") === 0 &&
+      subject.user === "chaosops-agent") {
+    return polkit.Result.YES;
+  }
+});

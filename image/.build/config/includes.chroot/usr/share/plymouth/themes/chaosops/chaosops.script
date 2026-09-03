@@ -1,0 +1,53 @@
+// ChaosOps Plymouth boot splash.
+// Background = design-package dark bg (#171310), centred logo, ring of
+// amber (#fbbf24) dots pulsing clockwise as the spinner.
+
+Window.SetBackgroundTopColor(0.090, 0.075, 0.063);    // #171310
+Window.SetBackgroundBottomColor(0.090, 0.075, 0.063);
+
+screen_w = Window.GetWidth();
+screen_h = Window.GetHeight();
+
+// Logo: scale to ~22% of screen height, keep aspect (source 795x777).
+logo.image_src = Image("logo.png");
+logo_h = Math.Int(screen_h * 0.22);
+logo_w = Math.Int(logo_h * 795 / 777);
+logo.image = logo.image_src.Scale(logo_w, logo_h);
+logo.sprite = Sprite(logo.image);
+logo.sprite.SetX(screen_w / 2 - logo_w / 2);
+logo.sprite.SetY(screen_h / 2 - logo_h / 2 - screen_h * 0.06);
+
+// Spinner: 12 dots on a circle below the logo.
+dot_image = Image("dot.png");
+NUM_DOTS = 12;
+spin_radius = Math.Int(screen_h * 0.045);
+spin_cx = screen_w / 2;
+spin_cy = screen_h / 2 + logo_h / 2 + screen_h * 0.04;
+
+for (i = 0; i < NUM_DOTS; i++) {
+  angle = i * 2 * 3.14159265 / NUM_DOTS;
+  dots[i].sprite = Sprite(dot_image);
+  dots[i].sprite.SetX(spin_cx + Math.Sin(angle) * spin_radius - dot_image.GetWidth() / 2);
+  dots[i].sprite.SetY(spin_cy - Math.Cos(angle) * spin_radius - dot_image.GetHeight() / 2);
+  dots[i].sprite.SetOpacity(0.2);
+}
+
+tick = 0;
+fun refresh_callback() {
+  tick++;
+  head = Math.Int(tick / 4) % NUM_DOTS;   // ~12.5 rotations/min at 50fps
+  for (i = 0; i < NUM_DOTS; i++) {
+    // Trail fades behind the head dot.
+    dist = (head - i + NUM_DOTS) % NUM_DOTS;
+    dots[i].sprite.SetOpacity(1.0 - dist * 0.08);
+  }
+}
+Plymouth.SetRefreshFunction(refresh_callback);
+
+// Keep the splash clean: swallow status/messages except shutdown-critical ones.
+fun message_callback(text) { }
+Plymouth.SetMessageFunction(message_callback);
+
+// Never show a text prompt on the kiosk; auto-fail rather than expose input.
+fun question_callback(prompt, entry) { }
+Plymouth.SetDisplayQuestionFunction(question_callback);

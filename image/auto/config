@@ -9,7 +9,8 @@ lb config noauto \
   --architecture amd64 \
   --binary-images iso-hybrid \
   --archive-areas "main contrib non-free non-free-firmware" \
-  --debian-installer none \
+  --debian-installer live \
+  --debian-installer-gui true \
   --memtest none \
   --apt-recommends false \
   --firmware-chroot true \

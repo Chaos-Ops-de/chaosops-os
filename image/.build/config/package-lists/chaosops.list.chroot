@@ -1,0 +1,37 @@
+# Packages baked into ChaosOps OS. Deliberately minimal — this is an appliance,
+# not a desktop. No display manager, no window manager, no shell utilities
+# beyond what the kiosk + WiFi onboarding need.
+
+# Graphical kiosk: cage is a single-window Wayland compositor; Chromium is the
+# only app it ever runs.
+cage
+chromium
+
+# Branded boot: Plymouth owns the screen from GRUB hand-off to the kiosk.
+plymouth
+plymouth-label
+
+# Networking: NetworkManager is what the wifi-agent drives via nmcli/polkit.
+network-manager
+
+# The wifi-agent + hotkey daemon are plain Node (zero npm deps).
+nodejs
+
+# Hotkey daemon reads evdev via libinput.
+libinput-tools
+
+# Runtime bits.
+curl
+ca-certificates
+dbus-user-session
+policykit-1
+fonts-dejavu-core
+
+# WiFi/graphics firmware (needs the non-free-firmware archive area, set in
+# image/auto/config). Covers the common Intel/Realtek/Atheros NIC + GPU chips
+# found in x86-64 mini-PCs / NUCs.
+firmware-linux
+firmware-iwlwifi
+firmware-realtek
+firmware-atheros
+firmware-misc-nonfree

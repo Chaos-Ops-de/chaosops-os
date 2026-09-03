@@ -1,0 +1,37 @@
+#!/bin/sh
+# Runs in the binary stage (as root) after the bootloader configs are laid out.
+#
+# 1) Strip `findiso=${iso_path}` from the GRUB (UEFI) kernel command line. That
+#    parameter is only meaningful when GRUB loopback-boots an ISO *file* on a
+#    partition; on a normal USB/CD boot ${iso_path} is empty, and an empty
+#    `findiso=` makes live-boot fail to find the live medium and drop to the
+#    (initramfs) rescue shell — but ONLY under UEFI (isolinux/BIOS has no
+#    findiso). We never loopback-boot the ISO, so remove it outright.
+#
+# 2) Show the boot menu (this is an install/live USB — the operator needs to be
+#    able to pick "Graphical install"). The system once installed to disk hides
+#    its own GRUB via os/grub/99-chaosops.cfg and boots straight to the kiosk.
+set -e
+
+echo "[chaosops-hook] boot fixup: strip findiso + show menu"
+
+# --- GRUB (UEFI) ---
+for cfg in binary/boot/grub/grub.cfg binary/EFI/debian/grub.cfg binary/boot/grub/*/grub.cfg; do
+  [ -f "$cfg" ] || continue
+  sed -i 's/ findiso=[^ ]*//g' "$cfg"
+  if grep -qiE '^set timeout=' "$cfg"; then
+    sed -i 's/^set timeout=.*/set timeout=20/I' "$cfg"
+  else
+    sed -i '1i set timeout=20' "$cfg"
+  fi
+  sed -i 's/^set timeout_style=.*/set timeout_style=menu/I' "$cfg" || true
+done
+
+# --- syslinux / isolinux (BIOS) ---
+for cfg in binary/isolinux/isolinux.cfg binary/syslinux/syslinux.cfg; do
+  [ -f "$cfg" ] || continue
+  sed -i 's/^timeout .*/timeout 200/I' "$cfg"   # 1/10s units -> 20s
+  sed -i 's/^prompt .*/prompt 1/I' "$cfg"
+done
+
+echo "[chaosops-hook] boot fixup done"

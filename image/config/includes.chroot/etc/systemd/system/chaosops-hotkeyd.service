@@ -1,0 +1,41 @@
+[Unit]
+Description=ChaosOps hotkey daemon (global chords -> wifi-agent actions)
+Documentation=file:///opt/chaosops/wifi-agent/README.md
+Wants=wifi-agent.service
+After=wifi-agent.service
+
+[Service]
+Type=simple
+User=chaosops-agent
+Group=chaosops-agent
+# Reads raw evdev devices via libinput; that's what the "input" group grants.
+SupplementaryGroups=input
+Environment=NODE_ENV=production
+# hotkeyd.js reads CHAOSOPS_AGENT_URL (default http://127.0.0.1:8080).
+Environment=CHAOSOPS_AGENT_URL=http://127.0.0.1:8080
+EnvironmentFile=-/etc/chaosops/wifi-agent.env
+WorkingDirectory=/opt/chaosops/wifi-agent
+# TODO(workstream C): confirm entrypoint against wifi-agent's documented build
+# output once merged; contract-side placeholder is hotkeyd.js.
+# Chords (contract, wifi-agent/README.md): Ctrl+Alt+W = WiFi menu,
+# Ctrl+Alt+R = kiosk reset. Both act by calling the local agent API.
+ExecStart=/usr/bin/node /opt/chaosops/wifi-agent/hotkeyd.js
+Restart=always
+RestartSec=2
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+DeviceAllow=char-input r
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallFilter=@system-service
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

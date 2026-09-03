@@ -1,0 +1,59 @@
+#!/bin/sh
+# Runs inside the ChaosOps OS chroot during `lb build` (as root). Creates the
+# two service users, wires up the systemd units the includes.chroot payload
+# dropped in, and applies the boot/lockdown settings. Everything this touches
+# was placed on disk by image/build.sh (from the repo's os/ + app payloads).
+set -e
+
+echo "[chaosops-hook] configuring users, services and lockdown"
+
+# --- Users ---------------------------------------------------------------
+# Unprivileged network-control user for the wifi-agent + hotkey daemon.
+if ! getent passwd chaosops-agent >/dev/null; then
+  adduser --system --group --no-create-home \
+    --home /var/lib/chaosops --shell /usr/sbin/nologin chaosops-agent
+fi
+adduser chaosops-agent netdev || true
+adduser chaosops-agent input  || true
+
+# The kiosk session user. No password; the graphical session (PAM/TTY) is the
+# only way it is ever "logged in". No shell it could be dropped to.
+if ! getent passwd kiosk >/dev/null; then
+  adduser --disabled-password --gecos "ChaosOps Kiosk" --shell /usr/sbin/nologin kiosk
+fi
+for g in video render input; do adduser kiosk "$g" || true; done
+
+# --- State dir -----------------------------------------------------------
+mkdir -p /var/lib/chaosops
+chown chaosops-agent:chaosops-agent /var/lib/chaosops
+mkdir -p /etc/chaosops   # optional /etc/chaosops/wifi-agent.env override (EnvironmentFile=-)
+
+# --- Permissions on payload ----------------------------------------------
+chmod 0755 /usr/local/bin/chaosops-kiosk
+chmod 0644 /etc/chromium/policies/managed/chaosops.json || true
+
+# --- systemd wiring ------------------------------------------------------
+systemctl enable NetworkManager.service
+systemctl enable wifi-agent.service
+systemctl enable chaosops-hotkeyd.service
+systemctl enable chaosops-kiosk.service
+systemctl set-default graphical.target
+
+# tty1 belongs to the kiosk session, never a login prompt. logind-chaosops.conf
+# already sets NAutoVTs=0/ReserveVT=0; also mask the tty1 getty explicitly.
+systemctl mask getty@tty1.service
+systemctl disable getty@tty1.service || true
+
+# No remote entry into the appliance.
+systemctl mask ssh.service 2>/dev/null || true
+systemctl mask serial-getty@ttyS0.service 2>/dev/null || true
+
+# --- Boot splash ---------------------------------------------------------
+# Make the ChaosOps Plymouth theme the default and rebuild the initramfs so it
+# is present at early boot.
+if command -v plymouth-set-default-theme >/dev/null 2>&1; then
+  plymouth-set-default-theme -R chaosops || plymouth-set-default-theme chaosops || true
+fi
+update-initramfs -u || true
+
+echo "[chaosops-hook] done"
