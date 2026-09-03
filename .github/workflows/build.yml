@@ -44,7 +44,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential git wget cpio unzip rsync bc file \
-            libncurses-dev python3 ccache dosfstools mtools
+            libncurses-dev python3 ccache dosfstools mtools \
+            libelf-dev libssl-dev flex bison
+          # libelf-dev: x86-64 kernel builds tools/objtool (ORC unwinder) which
+          #   needs <gelf.h>; without it the build dies at 'fatal error: gelf.h'.
+          # libssl-dev/flex/bison: standard Linux kernel host-build deps.
 
       - name: Fetch Buildroot ${{ env.BUILDROOT_REF }}
         run: |
