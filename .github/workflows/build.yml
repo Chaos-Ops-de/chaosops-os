@@ -1,4 +1,4 @@
-name: Build ChaosOps OS image
+name: Build ChaosOps OS images
 
 on:
   push:
@@ -6,19 +6,29 @@ on:
     paths:
       - 'buildroot-external/**'
       - '.github/workflows/build.yml'
-  workflow_dispatch:
-    inputs:
-      buildroot_ref:
-        description: 'Buildroot release tag'
-        default: '2024.02.9'
+  workflow_dispatch: {}
 
 env:
   BUILDROOT_REF: '2024.02.9'
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: x86_64            # ThinkCentre / NUC / generic Intel-AMD mini-PC (UEFI)
+            base: chaosops_x86_64_defconfig
+            image: chaosops-os-x86_64.img
+          - name: rpi4-64           # Raspberry Pi 4 / 400 (aarch64)
+            base: raspberrypi4_64_defconfig
+            image: sdcard.img
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,8 +48,8 @@ jobs:
 
       - name: Fetch Buildroot ${{ env.BUILDROOT_REF }}
         run: |
-          REF="${{ github.event.inputs.buildroot_ref || env.BUILDROOT_REF }}"
-          git clone --depth 1 --branch "$REF" https://gitlab.com/buildroot.org/buildroot.git buildroot
+          git clone --depth 1 --branch "$BUILDROOT_REF" \
+            https://gitlab.com/buildroot.org/buildroot.git buildroot
           echo "BR2_EXTERNAL=$GITHUB_WORKSPACE/buildroot-external" >> "$GITHUB_ENV"
 
       - name: Cache downloads + ccache
@@ -48,25 +58,30 @@ jobs:
           path: |
             buildroot/dl
             ~/.buildroot-ccache
-          key: br-${{ env.BUILDROOT_REF }}-${{ hashFiles('buildroot-external/configs/*_defconfig') }}
+          key: br-${{ env.BUILDROOT_REF }}-${{ matrix.name }}-${{ hashFiles('buildroot-external/configs/*') }}
           restore-keys: |
-            br-${{ env.BUILDROOT_REF }}-
+            br-${{ env.BUILDROOT_REF }}-${{ matrix.name }}-
 
-      - name: Configure
+      - name: Configure (${{ matrix.name }})
         working-directory: buildroot
-        run: make BR2_EXTERNAL="$BR2_EXTERNAL" chaosops_x86_64_defconfig
+        run: |
+          make BR2_EXTERNAL="$BR2_EXTERNAL" ${{ matrix.base }}
+          # Merge the shared ChaosOps userspace/branding fragment on top.
+          ./support/kconfig/merge_config.sh -m -O . .config \
+            "$BR2_EXTERNAL/configs/chaosops.frag"
+          make BR2_EXTERNAL="$BR2_EXTERNAL" olddefconfig
 
-      - name: Build
+      - name: Build (${{ matrix.name }})
         working-directory: buildroot
-        run: make BR2_JLEVEL=$(( $(nproc) + 1 ))
+        run: make BR2_EXTERNAL="$BR2_EXTERNAL" BR2_JLEVEL=$(( $(nproc) + 1 ))
 
       - name: Show images
         run: ls -lh buildroot/output/images/
 
-      - name: Upload image
+      - name: Upload image (${{ matrix.name }})
         uses: actions/upload-artifact@v4
         with:
-          name: chaosops-os-x86_64
-          path: buildroot/output/images/chaosops-os-x86_64.img
+          name: chaosops-os-${{ matrix.name }}
+          path: buildroot/output/images/${{ matrix.image }}
           if-no-files-found: error
           compression-level: 6
