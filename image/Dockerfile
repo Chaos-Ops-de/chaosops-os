@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       live-build \
       debootstrap \
       squashfs-tools \
+      cpio \
       xorriso \
       isolinux \
       syslinux-common \
