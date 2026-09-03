@@ -1,0 +1,5 @@
+NAME="ChaosOps OS"
+PRETTY_NAME="ChaosOps OS"
+ID=chaosops
+ID_LIKE=buildroot
+HOME_URL="https://chaos-ops.de"

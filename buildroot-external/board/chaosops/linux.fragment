@@ -1,0 +1,18 @@
+# ChaosOps additions on top of the x86_64 arch default config.
+# EFI boot + framebuffer console for the branded boot screen.
+CONFIG_EFI=y
+CONFIG_EFI_STUB=y
+CONFIG_FB=y
+CONFIG_FB_EFI=y
+CONFIG_FB_SIMPLE=y
+CONFIG_FRAMEBUFFER_CONSOLE=y
+CONFIG_LOGO=y
+CONFIG_EXT4_FS=y
+CONFIG_VFAT_FS=y
+CONFIG_NLS_CODEPAGE_437=y
+CONFIG_NLS_ISO8859_1=y
+# Broad storage/USB so it boots off SATA, NVMe or USB on real mini-PCs
+CONFIG_BLK_DEV_NVME=y
+CONFIG_SATA_AHCI=y
+CONFIG_USB_XHCI_HCD=y
+CONFIG_USB_STORAGE=y

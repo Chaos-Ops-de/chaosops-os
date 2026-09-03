@@ -1,0 +1,72 @@
+name: Build ChaosOps OS image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'buildroot-external/**'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+    inputs:
+      buildroot_ref:
+        description: 'Buildroot release tag'
+        default: '2024.02.9'
+
+env:
+  BUILDROOT_REF: '2024.02.9'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
+            /usr/local/share/boost /usr/local/.ghcup "$AGENT_TOOLSDIRECTORY" || true
+          df -h /
+
+      - name: Install Buildroot host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential git wget cpio unzip rsync bc file \
+            libncurses-dev python3 ccache dosfstools mtools
+
+      - name: Fetch Buildroot ${{ env.BUILDROOT_REF }}
+        run: |
+          REF="${{ github.event.inputs.buildroot_ref || env.BUILDROOT_REF }}"
+          git clone --depth 1 --branch "$REF" https://gitlab.com/buildroot.org/buildroot.git buildroot
+          echo "BR2_EXTERNAL=$GITHUB_WORKSPACE/buildroot-external" >> "$GITHUB_ENV"
+
+      - name: Cache downloads + ccache
+        uses: actions/cache@v4
+        with:
+          path: |
+            buildroot/dl
+            ~/.buildroot-ccache
+          key: br-${{ env.BUILDROOT_REF }}-${{ hashFiles('buildroot-external/configs/*_defconfig') }}
+          restore-keys: |
+            br-${{ env.BUILDROOT_REF }}-
+
+      - name: Configure
+        working-directory: buildroot
+        run: make BR2_EXTERNAL="$BR2_EXTERNAL" chaosops_x86_64_defconfig
+
+      - name: Build
+        working-directory: buildroot
+        run: make BR2_JLEVEL=$(( $(nproc) + 1 ))
+
+      - name: Show images
+        run: ls -lh buildroot/output/images/
+
+      - name: Upload image
+        uses: actions/upload-artifact@v4
+        with:
+          name: chaosops-os-x86_64
+          path: buildroot/output/images/chaosops-os-x86_64.img
+          if-no-files-found: error
+          compression-level: 6
