@@ -72,6 +72,23 @@ cp -r "$REPO/kiosk-shell/dist/."   "$INC/opt/chaosops/kiosk-shell/"
 cp -r "$REPO/wifi-agent/src/."     "$INC/opt/chaosops/wifi-agent/"
 cp    "$REPO/wifi-agent/README.md" "$INC/opt/chaosops/wifi-agent/README.md" 2>/dev/null || true
 
+# --- Patch live-build's bootloader generation (root-cause boot fixes) -----
+# These edit live-build's own scripts/templates inside the (ephemeral) builder
+# container, which is the only reliable place: binary *hooks* run after the
+# bootloader configs are generated, so they can't change them.
+#
+# 1) Drop `findiso=${iso_path}` from the live GRUB entry. It is only meaningful
+#    when GRUB loopback-boots an ISO *file*; on a normal USB/CD boot it expands
+#    to an empty `findiso=` and makes live-boot fail to find the live medium
+#    under UEFI -> the system drops to the (initramfs) rescue shell. We never
+#    loopback-boot the ISO, so remove it outright.
+echo "==> patching live-build: strip findiso from live GRUB entry"
+sed -i 's/ findiso=[^"]*//' /usr/lib/live/build/binary_grub_cfg
+grep -q 'findiso' /usr/lib/live/build/binary_grub_cfg && { echo "ERROR: findiso still present in binary_grub_cfg" >&2; exit 1; } || echo "    findiso removed"
+# 2) Show the GRUB boot menu for 20s so the operator can pick "Graphical
+#    install" (the installed-to-disk system hides its own GRUB via os/grub).
+echo 'set timeout=20' >> /usr/share/live/build/bootloaders/grub-pc/config.cfg
+
 # --- Run live-build ------------------------------------------------------
 cd "$BUILD"
 echo "==> lb config"
