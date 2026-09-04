@@ -124,7 +124,7 @@ jobs:
         if: matrix.legacy_iso != ''
         uses: actions/upload-artifact@v4
         with:
-          name: chaosops-os-${{ matrix.name }}-legacy-iso
+          name: chaosops-os-${{ matrix.name }}-legacy
           path: buildroot/output/images/${{ matrix.legacy_name }}
           if-no-files-found: error
           compression-level: 6
