@@ -99,14 +99,18 @@ jobs:
 
       - name: Rename image (${{ matrix.name }})
         run: |
-          cp "buildroot/output/images/${{ matrix.build_image }}" \
-             "buildroot/output/images/${{ matrix.release_image }}"
+          src="buildroot/output/images/${{ matrix.build_image }}"
+          dst="buildroot/output/images/${{ matrix.release_image }}"
+          # build_image == release_image for some targets; cp refuses a
+          # same-file copy, so only copy when the names actually differ.
+          [ "$src" = "$dst" ] || cp "$src" "$dst"
 
       - name: Rename Legacy-BIOS/v86 ISO (${{ matrix.name }})
         if: matrix.legacy_iso != ''
         run: |
-          cp "buildroot/output/images/${{ matrix.legacy_iso }}" \
-             "buildroot/output/images/${{ matrix.legacy_name }}"
+          src="buildroot/output/images/${{ matrix.legacy_iso }}"
+          dst="buildroot/output/images/${{ matrix.legacy_name }}"
+          [ "$src" = "$dst" ] || cp "$src" "$dst"
 
       - name: Upload image (${{ matrix.name }})
         uses: actions/upload-artifact@v4
