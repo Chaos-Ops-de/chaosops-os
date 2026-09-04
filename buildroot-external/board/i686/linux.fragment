@@ -1,0 +1,9 @@
+# ChaosOps i686 legacy/v86 kernel additions on top of the i386 arch default
+# config. This target boots straight off an ISO9660 initrd (no root=
+# filesystem to mount), so it stays deliberately lean: no EFI, no storage
+# controller drivers - just enough to get a console up under SeaBIOS / v86.
+CONFIG_FB=y
+CONFIG_FB_VESA=y
+CONFIG_FRAMEBUFFER_CONSOLE=y
+CONFIG_VGA_CONSOLE=y
+CONFIG_LOGO=y

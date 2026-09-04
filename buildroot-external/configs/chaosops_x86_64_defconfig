@@ -30,10 +30,9 @@ BR2_PACKAGE_HOST_MTOOLS=y
 # HYBRID runs isohybrid over the finished ISO so it also `dd`s straight to a
 # USB stick. The whole rootfs is packed uncompressed as the ISO's initrd
 # (default cpio compression = none) to keep it small enough to load in one
-# shot even in memory-limited emulators/VMs (v86 and friends) -- see
-# board/x86_64/isolinux.cfg. NOTE: v86 only emulates 32-bit protected mode,
-# not x86_64 long mode, so this x86_64 kernel will not boot there; use an
-# i686 build for browser/v86 targets.
+# shot even in memory-limited emulators/VMs. NOTE: v86 only emulates 32-bit
+# protected mode, not x86_64 long mode, so this x86_64 kernel will not boot
+# there - see chaosops_i686_defconfig for the browser/v86-compatible build.
 BR2_TARGET_SYSLINUX=y
 BR2_TARGET_SYSLINUX_ISOLINUX=y
 BR2_TARGET_ROOTFS_ISO9660=y
