@@ -29,9 +29,11 @@ jobs:
           - name: x86_64            # ThinkCentre / NUC / generic Intel-AMD mini-PC (UEFI)
             base: chaosops_x86_64_defconfig
             image: chaosops-os-x86_64.img
+            legacy_iso: rootfs.iso9660   # ISOLINUX/El-Torito hybrid ISO: Legacy BIOS + v86
           - name: rpi4-64           # Raspberry Pi 4 / 400 (aarch64)
             base: raspberrypi4_64_defconfig
             image: sdcard.img
+            legacy_iso: ''
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -85,11 +87,26 @@ jobs:
       - name: Show images
         run: ls -lh buildroot/output/images/
 
+      - name: Rename Legacy-BIOS/v86 ISO (${{ matrix.name }})
+        if: matrix.legacy_iso != ''
+        run: |
+          cp "buildroot/output/images/${{ matrix.legacy_iso }}" \
+             "buildroot/output/images/chaosops-os-${{ matrix.name }}-legacy.iso"
+
       - name: Upload image (${{ matrix.name }})
         uses: actions/upload-artifact@v4
         with:
           name: chaosops-os-${{ matrix.name }}
           path: buildroot/output/images/${{ matrix.image }}
+          if-no-files-found: error
+          compression-level: 6
+
+      - name: Upload Legacy-BIOS/v86 ISO (${{ matrix.name }})
+        if: matrix.legacy_iso != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: chaosops-os-${{ matrix.name }}-legacy-iso
+          path: buildroot/output/images/chaosops-os-${{ matrix.name }}-legacy.iso
           if-no-files-found: error
           compression-level: 6
 

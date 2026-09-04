@@ -7,6 +7,12 @@ CONFIG_FB_EFI=y
 CONFIG_FB_SIMPLE=y
 CONFIG_FRAMEBUFFER_CONSOLE=y
 CONFIG_LOGO=y
+# Legacy-BIOS / v86 (SeaBIOS) fallback: don't require an EFI GOP framebuffer
+# to get a console. VGA text mode always works under real Legacy BIOS and
+# under browser emulators (v86); VESA gives a graphical fallback too when
+# nothing hands the kernel an EFI framebuffer.
+CONFIG_VGA_CONSOLE=y
+CONFIG_FB_VESA=y
 CONFIG_EXT4_FS=y
 CONFIG_VFAT_FS=y
 CONFIG_NLS_CODEPAGE_437=y
