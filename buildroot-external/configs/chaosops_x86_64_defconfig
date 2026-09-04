@@ -22,3 +22,21 @@ BR2_ROOTFS_POST_IMAGE_SCRIPT="$(BR2_EXTERNAL_CHAOSOPS_PATH)/board/x86_64/post-im
 BR2_PACKAGE_HOST_GENIMAGE=y
 BR2_PACKAGE_HOST_DOSFSTOOLS=y
 BR2_PACKAGE_HOST_MTOOLS=y
+
+# Legacy-BIOS (SeaBIOS) / v86-compatible hybrid ISO, built alongside the
+# UEFI disk image above. ISOLINUX gives a real El-Torito BIOS boot sector +
+# boot catalog (xorriso -b isolinux/isolinux.bin -no-emul-boot
+# -boot-load-size 4 -boot-info-table, handled by Buildroot's fs/iso9660);
+# HYBRID runs isohybrid over the finished ISO so it also `dd`s straight to a
+# USB stick. The whole rootfs is packed uncompressed as the ISO's initrd
+# (default cpio compression = none) to keep it small enough to load in one
+# shot even in memory-limited emulators/VMs. NOTE: v86 only emulates 32-bit
+# protected mode, not x86_64 long mode, so this x86_64 kernel will not boot
+# there - see chaosops_i686_defconfig for the browser/v86-compatible build.
+BR2_TARGET_SYSLINUX=y
+BR2_TARGET_SYSLINUX_ISOLINUX=y
+BR2_TARGET_ROOTFS_ISO9660=y
+BR2_TARGET_ROOTFS_ISO9660_ISOLINUX=y
+BR2_TARGET_ROOTFS_ISO9660_BOOT_MENU="$(BR2_EXTERNAL_CHAOSOPS_PATH)/board/x86_64/isolinux.cfg"
+BR2_TARGET_ROOTFS_ISO9660_INITRD=y
+BR2_TARGET_ROOTFS_ISO9660_HYBRID=y
