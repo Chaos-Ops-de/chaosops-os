@@ -15,6 +15,9 @@ concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -89,3 +92,35 @@ jobs:
           path: buildroot/output/images/${{ matrix.image }}
           if-no-files-found: error
           compression-level: 6
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - name: Download built images
+        uses: actions/download-artifact@v4
+        with:
+          path: images
+          pattern: chaosops-os-*
+          merge-multiple: false
+
+      - name: Flatten and rename images
+        run: |
+          mkdir -p release
+          for dir in images/*/; do
+            name=$(basename "$dir")
+            file=$(find "$dir" -type f | head -n1)
+            ext="${file##*.}"
+            cp "$file" "release/${name}.${ext}"
+          done
+          ls -lh release/
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: ChaosOps OS build ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          files: release/*
+          generate_release_notes: true
