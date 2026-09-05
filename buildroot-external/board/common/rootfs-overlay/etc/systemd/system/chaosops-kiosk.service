@@ -1,0 +1,23 @@
+[Unit]
+Description=ChaosOps kiosk session
+# Start once basic userspace + udev-populated /dev (incl. /dev/dri) are up.
+After=systemd-user-sessions.service systemd-udev-settle.service
+Wants=systemd-udev-settle.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/chaosops-kiosk
+# The DRM node may not be ready the instant we start; just keep retrying until
+# the GPU is available (avoids hard-coding card0 vs card1 ordering).
+Restart=always
+RestartSec=2
+# Own tty1 so the session has a real VT and the fbcon/cursor is out of the way.
+StandardInput=tty
+StandardOutput=journal
+StandardError=journal
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+
+[Install]
+WantedBy=multi-user.target

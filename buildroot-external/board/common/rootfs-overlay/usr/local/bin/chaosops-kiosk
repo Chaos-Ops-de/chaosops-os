@@ -1,0 +1,13 @@
+#!/bin/sh
+# ChaosOps kiosk session launcher (run by chaosops-kiosk.service on tty1).
+#
+# Stage 2A-1 (this): graphics smoke test — kmscube renders a spinning cube
+# straight on DRM/GBM/GLES with no compositor. If it paints on real hardware,
+# the exact stack cog's COG_PLATFORM_DRM needs (KMS + GBM + EGL + GLES) works.
+#
+# Stage 2A-2 will replace the exec line below with cog on the DRM platform:
+#   exec env COG_PLATFORM=drm cog "file:///usr/share/chaosops/boot-test.html"
+# and later stages point it at the local kiosk-shell on http://127.0.0.1:8080/.
+set -eu
+
+exec kmscube
