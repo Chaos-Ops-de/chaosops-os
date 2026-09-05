@@ -28,18 +28,21 @@ jobs:
         include:
           - name: x86_64            # ThinkCentre / NUC / generic Intel-AMD mini-PC (UEFI)
             base: chaosops_x86_64_defconfig
+            kiosk_frag: configs/chaosops-kiosk.frag   # full kiosk runtime
             build_image: chaosops-os-x86_64.img
             release_image: chaosops-os-x86_64.img
             legacy_iso: rootfs.iso9660   # ISOLINUX/El-Torito hybrid ISO: Legacy BIOS + v86
             legacy_name: chaosops-os-x86_64-legacy.iso
           - name: rpi4-64           # Raspberry Pi 4 / 400 (aarch64)
             base: raspberrypi4_64_defconfig
+            kiosk_frag: configs/chaosops-kiosk.frag   # full kiosk runtime
             build_image: sdcard.img
             release_image: chaosops-os-rpi4-64.img
             legacy_iso: ''
             legacy_name: ''
           - name: i686              # 32-bit Legacy-BIOS + browser emulators (v86 - copy.sh/v86
             base: chaosops_i686_defconfig      # only supports 32-bit protected mode, no x86_64)
+            kiosk_frag: ''            # lean v86 ISO: branding only, NO kiosk runtime
             build_image: rootfs.iso9660
             release_image: chaosops-os-i686-legacy.iso
             legacy_iso: ''
@@ -85,9 +88,13 @@ jobs:
         working-directory: buildroot
         run: |
           make BR2_EXTERNAL="$BR2_EXTERNAL" ${{ matrix.base }}
-          # Merge the shared ChaosOps userspace/branding fragment on top.
-          ./support/kconfig/merge_config.sh -m -O . .config \
-            "$BR2_EXTERNAL/configs/chaosops.frag"
+          # Merge the shared ChaosOps userspace/branding fragment on top, then
+          # (real-hardware targets only) the full kiosk runtime fragment.
+          FRAGS="$BR2_EXTERNAL/configs/chaosops.frag"
+          if [ -n "${{ matrix.kiosk_frag }}" ]; then
+            FRAGS="$FRAGS $BR2_EXTERNAL/${{ matrix.kiosk_frag }}"
+          fi
+          ./support/kconfig/merge_config.sh -m -O . .config $FRAGS
           make BR2_EXTERNAL="$BR2_EXTERNAL" olddefconfig
 
       - name: Build (${{ matrix.name }})
