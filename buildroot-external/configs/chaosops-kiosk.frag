@@ -8,6 +8,12 @@
 BR2_ROOTFS_MERGED_USR=y
 BR2_INIT_SYSTEMD=y
 
+# --- Rootfs size: the full kiosk stack (systemd + Mesa + WPE WebKit + cog) is
+#     ~0.5-0.7 GB. The Pi base defconfig hardcodes a 120M ext2 which overflows
+#     at mkfs. 900M gives headroom on every board (x86_64 proved the stack fits
+#     in 700M; this override applies to the Pi too since the frag is merged last).
+BR2_TARGET_ROOTFS_EXT2_SIZE="900M"
+
 # --- Wayland / DRM / Mesa (GBM+EGL+GLES = exactly what cog COG_PLATFORM_DRM
 #     and kmscube need). SWRAST is the always-available software fallback so a
 #     machine with no accelerated gallium driver still renders. -------------
