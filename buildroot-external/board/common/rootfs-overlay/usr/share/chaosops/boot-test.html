@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>ChaosOps OS</title>
+<style>
+  html,body{height:100%;margin:0}
+  body{
+    background:#0b0f14;color:#e8edf2;
+    font-family:"DejaVu Sans",system-ui,sans-serif;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:1.5rem;text-align:center;overflow:hidden;
+  }
+  .mark{font-size:clamp(2.5rem,9vw,7rem);font-weight:800;letter-spacing:-.03em}
+  .mark span{color:#ff5c39}
+  .sub{font-size:clamp(1rem,2.4vw,1.6rem);color:#8b98a5}
+  .ok{
+    margin-top:.5rem;font-size:clamp(.9rem,2vw,1.3rem);
+    padding:.5rem 1.1rem;border:1px solid #1f2a35;border-radius:999px;color:#5ad19b;
+  }
+  .clock{font-variant-numeric:tabular-nums;color:#5b6874;font-size:1.1rem}
+  .pulse{width:14px;height:14px;border-radius:50%;background:#ff5c39;
+    box-shadow:0 0 0 0 rgba(255,92,57,.6);animation:p 1.8s infinite}
+  @keyframes p{0%{box-shadow:0 0 0 0 rgba(255,92,57,.5)}70%{box-shadow:0 0 0 22px rgba(255,92,57,0)}100%{box-shadow:0 0 0 0 rgba(255,92,57,0)}}
+</style>
+</head>
+<body>
+  <div class="pulse"></div>
+  <div class="mark">Chaos<span>Ops</span> OS</div>
+  <div class="sub">Kiosk graphics stack online</div>
+  <div class="ok">✓ WPE WebKit &middot; cog &middot; DRM/KMS &middot; Mesa</div>
+  <div class="clock" id="clk"></div>
+<script>
+  // Proves JS executes in the WebKit runtime.
+  const c=document.getElementById('clk');
+  setInterval(()=>{c.textContent=new Date().toISOString().replace('T',' ').slice(0,19)+' UTC';},1000);
+</script>
+</body>
+</html>

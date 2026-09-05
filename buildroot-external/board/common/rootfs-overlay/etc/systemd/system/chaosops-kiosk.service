@@ -6,6 +6,9 @@ Wants=systemd-udev-settle.service
 
 [Service]
 Type=simple
+# WPE/cog expect an XDG_RUNTIME_DIR; systemd creates /run/chaosops for us.
+RuntimeDirectory=chaosops
+Environment=XDG_RUNTIME_DIR=/run/chaosops
 ExecStart=/usr/local/bin/chaosops-kiosk
 # The DRM node may not be ready the instant we start; just keep retrying until
 # the GPU is available (avoids hard-coding card0 vs card1 ordering).

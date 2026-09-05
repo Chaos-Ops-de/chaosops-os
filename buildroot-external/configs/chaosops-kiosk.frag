@@ -29,6 +29,15 @@ BR2_PACKAGE_DEJAVU=y
 BR2_PACKAGE_CA_CERTIFICATES=y
 
 # --- Stage 2A-1 graphics smoke test: kmscube draws a spinning cube straight
-#     on DRM/GBM/GLES. If this renders on boot, the whole cog-drm stack is
-#     proven; Stage 2A-2 then swaps kmscube for cog + WPE WebKit. -----------
+#     on DRM/GBM/GLES. Kept as a tiny built-in debug tool. -------------------
 BR2_PACKAGE_KMSCUBE=y
+
+# --- Stage 2A-2: the kiosk browser — cog on WPE WebKit, DRM platform.
+#     COG_PLATFORM_DRM runs cog fullscreen straight on KMS with NO separate
+#     compositor (uses Mesa GBM/EGL/GLES + libdrm + libinput, all above).
+#     wpebackend-fdo is WPE's rendering backend. This is the heavy compile
+#     (WebKit + icu/harfbuzz/cairo/libsoup3/…). ------------------------------
+BR2_PACKAGE_WPEWEBKIT=y
+BR2_PACKAGE_WPEBACKEND_FDO=y
+BR2_PACKAGE_COG=y
+BR2_PACKAGE_COG_PLATFORM_DRM=y
