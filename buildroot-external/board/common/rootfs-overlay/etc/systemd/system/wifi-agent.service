@@ -1,0 +1,22 @@
+[Unit]
+Description=ChaosOps WiFi agent (127.0.0.1:8080 API + kiosk-shell static server)
+Wants=NetworkManager.service
+After=NetworkManager.service network.target dbus.service
+# The kiosk session waits for this to answer on :8080 before cog loads the UI.
+
+[Service]
+Type=simple
+# Stage 2B runs the agent as root for full NetworkManager (D-Bus) access with no
+# polkit setup. Stage 2C drops it to an unprivileged chaosops-agent + polkit rule.
+Environment=NODE_ENV=production
+Environment=PORT=8080
+Environment=CHAOSOPS_STATIC_DIR=/opt/chaosops/kiosk-shell
+Environment=CHAOSOPS_DISPLAY_URL=https://app.chaos-ops.de/register-display
+EnvironmentFile=-/etc/chaosops/wifi-agent.env
+WorkingDirectory=/opt/chaosops/wifi-agent
+ExecStart=/usr/bin/node /opt/chaosops/wifi-agent/server.js
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

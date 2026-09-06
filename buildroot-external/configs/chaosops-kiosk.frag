@@ -10,9 +10,9 @@ BR2_INIT_SYSTEMD=y
 
 # --- Rootfs size: the full kiosk stack (systemd + Mesa + WPE WebKit + cog) is
 #     ~0.5-0.7 GB. The Pi base defconfig hardcodes a 120M ext2 which overflows
-#     at mkfs. 900M gives headroom on every board (x86_64 proved the stack fits
-#     in 700M; this override applies to the Pi too since the frag is merged last).
-BR2_TARGET_ROOTFS_EXT2_SIZE="900M"
+#     at mkfs. 1300M gives headroom for the full stack incl. Node + Network-
+#     Manager + WiFi firmware, on every board (frag merged last, applies to Pi).
+BR2_TARGET_ROOTFS_EXT2_SIZE="1300M"
 
 # --- Wayland / DRM / Mesa (GBM+EGL+GLES = exactly what cog COG_PLATFORM_DRM
 #     and kmscube need). SWRAST is the always-available software fallback so a
@@ -47,3 +47,29 @@ BR2_PACKAGE_WPEWEBKIT=y
 BR2_PACKAGE_WPEBACKEND_FDO=y
 BR2_PACKAGE_COG=y
 BR2_PACKAGE_COG_PLATFORM_DRM=y
+
+# --- Stage 2B: the kiosk application + connectivity -------------------------
+# Node runtime for the zero-dependency wifi-agent (serves kiosk-shell on
+# 127.0.0.1:8080 + wraps NetworkManager via nmcli) and the hotkey daemon.
+BR2_PACKAGE_NODEJS=y
+# NetworkManager (+ nmcli) drives WiFi; wpa_supplicant does the WPA handshake.
+BR2_PACKAGE_NETWORK_MANAGER=y
+BR2_PACKAGE_NETWORK_MANAGER_CLI=y
+BR2_PACKAGE_WPA_SUPPLICANT=y
+BR2_PACKAGE_WPA_SUPPLICANT_NL80211=y
+BR2_PACKAGE_WPA_SUPPLICANT_CLI=y
+# WiFi firmware. Intel iwlwifi has no "all" symbol — enable the modern
+# generations that cover most ThinkCentre/NUC/Intel mini-PCs from ~2014 on.
+# The Pi's brcmfmac firmware comes from its own BSP. Add more per-chip symbols
+# once exact WiFi hardware is known.
+BR2_PACKAGE_LINUX_FIRMWARE=y
+BR2_PACKAGE_LINUX_FIRMWARE_IWLWIFI_7260=y
+BR2_PACKAGE_LINUX_FIRMWARE_IWLWIFI_7265=y
+BR2_PACKAGE_LINUX_FIRMWARE_IWLWIFI_7265D=y
+BR2_PACKAGE_LINUX_FIRMWARE_IWLWIFI_8000C=y
+BR2_PACKAGE_LINUX_FIRMWARE_IWLWIFI_8265=y
+BR2_PACKAGE_LINUX_FIRMWARE_IWLWIFI_9XXX=y
+BR2_PACKAGE_LINUX_FIRMWARE_IWLWIFI_22000=y
+BR2_PACKAGE_LINUX_FIRMWARE_IWLWIFI_22260=y
+BR2_PACKAGE_LINUX_FIRMWARE_IWLWIFI_QUZ=y
+BR2_PACKAGE_LINUX_FIRMWARE_IWLWIFI_6E=y

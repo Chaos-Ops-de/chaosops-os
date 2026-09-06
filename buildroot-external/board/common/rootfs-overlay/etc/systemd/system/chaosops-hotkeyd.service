@@ -1,0 +1,19 @@
+[Unit]
+Description=ChaosOps hotkey daemon (global chords -> wifi-agent actions)
+Wants=wifi-agent.service
+After=wifi-agent.service
+
+[Service]
+Type=simple
+# Root in Stage 2B so it can read /dev/input/event* directly (chords are read
+# one layer below the compositor so cog can't swallow them). 2C moves this to
+# the chaosops-agent user in the 'input' group.
+Environment=CHAOSOPS_AGENT_URL=http://127.0.0.1:8080
+EnvironmentFile=-/etc/chaosops/wifi-agent.env
+WorkingDirectory=/opt/chaosops/wifi-agent
+ExecStart=/usr/bin/node /opt/chaosops/wifi-agent/hotkeyd.js
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

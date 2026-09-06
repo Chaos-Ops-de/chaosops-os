@@ -1,14 +1,24 @@
 #!/bin/sh
 # ChaosOps kiosk session launcher (run by chaosops-kiosk.service on tty1).
 #
-# Stage 2A-2 (this): cog (WPE WebKit) fullscreen on the DRM platform — straight
-# on KMS with no compositor — showing the branded boot-test page. This proves
-# the browser renders HTML/CSS/JS on real hardware. Later stages point cog at
-# the local kiosk-shell on http://127.0.0.1:8080/.
+# Stage 2B: cog (WPE WebKit) fullscreen on the DRM platform, pointed at the
+# local kiosk-shell served by wifi-agent on 127.0.0.1:8080 (branded WiFi
+# onboarding / ChaosOps display). We wait for the agent to answer before
+# launching so a broken/blank page never shows.
 #
-# kmscube is still installed as a fallback graphics debug tool (run it by hand).
+# kmscube stays installed as a fallback graphics debug tool (run it by hand).
 set -eu
 
-URL="file:///usr/share/chaosops/boot-test.html"
+URL="http://127.0.0.1:8080/"
+
+# Wait for wifi-agent's port. /bin/sh is bash here (BR2_SYSTEM_BIN_SH_BASH), so
+# /dev/tcp works and we avoid pulling in curl.
+i=0
+while ! (exec 3<>/dev/tcp/127.0.0.1/8080) 2>/dev/null; do
+  i=$((i + 1))
+  [ "$i" -ge 60 ] && break   # after ~60s launch anyway; the shell shows its own error state
+  sleep 1
+done
+exec 3>&- 2>/dev/null || true
 
 exec env COG_PLATFORM=drm cog --platform=drm "$URL"
