@@ -8,10 +8,10 @@ user:
 - **`src/hotkeyd.js`** — global hotkey daemon (reads evdev directly).
 
 Deployed to `/opt/chaosops/wifi-agent/` on the image; started by
-`wifi-agent.service` and `chaosops-hotkeyd.service` (see `../os/`).
+`wifi-agent.service` and `chaosops-hotkeyd.service` (see `../os/rootfs/etc/systemd/system/`).
 
 ## HTTP API (frozen contract — `docs/ARCHITECTURE.md`)
-Served on `127.0.0.1:8080`; also serves the built kiosk-shell (`KIOSK_SHELL_DIR`)
+Served on `127.0.0.1:8080`; also serves the built kiosk-shell (`CHAOSOPS_STATIC_DIR`)
 as static files at `/`.
 
 | Method + path | Returns / does |
@@ -22,6 +22,7 @@ as static files at `/`.
 | `POST /api/forget` | drop saved connections |
 | `GET /api/onboarding` | `{ qrPayload, humanCode }` for the offline QR + code |
 | `GET /api/config` | `{ displayUrl }` (from `CHAOSOPS_DISPLAY_URL`) |
+| `GET /api/display-check` | `{ displayUrl, ok, reason?, detail? }` — fetches the display URL and applies the browser's framing rules (CSP `frame-ancestors`, else `X-Frame-Options`) for the kiosk origin. `reason`: `unreachable` / `http-error` / `frame-blocked`. Cached 20 s. |
 | `GET /api/events` | **SSE** stream; frames `{"type":"open-wifi-menu"}` / `{"type":"reset"}` |
 | `POST /api/hotkey` `{ chord }` | internal — the hotkey daemon calls this; `wifi`→broadcast `open-wifi-menu`, `reset`→forget WiFi + broadcast `reset` |
 
@@ -49,7 +50,9 @@ the chords global and un-swallowable. It needs read access to `/dev/input`
 |-----|---------|---------|
 | `PORT` | `8080` | API/static port (loopback only) |
 | `CHAOSOPS_DISPLAY_URL` | `https://app.chaos-ops.de/register-display` | display URL surfaced via `/api/config` |
-| `KIOSK_SHELL_DIR` | `/opt/chaosops/kiosk-shell` | static build to serve at `/` |
+| `CHAOSOPS_STATIC_DIR` | `../kiosk-shell/dist` (image: `/opt/chaosops/kiosk-shell`) | static build to serve at `/` |
+| `CHAOSOPS_STATE_DIR` | `/var/lib/wifi-agent` (image: `/var/lib/chaosops`) | where `identity.json` (deviceCode) persists |
+| `CHAOSOPS_KIOSK_ORIGIN` | `http://127.0.0.1:8080` | origin the display must allow to frame it (`/api/display-check`) |
 | `CHAOSOPS_NM_BACKEND` | `nmcli` (Linux) / `mock` | NetworkManager backend |
 | `CHAOSOPS_AGENT_URL` | `http://127.0.0.1:8080` | where `hotkeyd` posts chords |
 | `CHAOSOPS_HOTKEY_BACKEND` | `evdev` (Linux) / `stdin` | hotkey input source (`stdin` mock types `wifi`/`reset`) |

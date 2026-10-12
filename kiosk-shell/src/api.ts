@@ -27,6 +27,11 @@ export interface Config {
   displayUrl: string
 }
 
+/** Agent-side probe: can the display URL be framed by this shell right now? */
+export type DisplayCheck =
+  | { displayUrl: string; ok: true }
+  | { displayUrl: string; ok: false; reason: 'unreachable' | 'http-error' | 'frame-blocked'; detail?: string }
+
 export type AgentEvent = { type: 'open-wifi-menu' } | { type: 'reset' }
 
 async function get<T>(path: string): Promise<T> {
@@ -39,6 +44,7 @@ export const getStatus = () => get<Status>('/api/status')
 export const getNetworks = () => get<Network[]>('/api/networks')
 export const getOnboarding = () => get<Onboarding>('/api/onboarding')
 export const getConfig = () => get<Config>('/api/config')
+export const getDisplayCheck = () => get<DisplayCheck>('/api/display-check')
 
 export async function connect(ssid: string, psk: string): Promise<void> {
   const res = await fetch('/api/connect', {

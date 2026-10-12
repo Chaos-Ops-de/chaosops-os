@@ -7,6 +7,7 @@ import { extname, join, normalize, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createBackend } from './nm/index.js';
 import { loadIdentity } from './identity.js';
+import { checkDisplay } from './display-check.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -39,6 +40,18 @@ export function createApp({ backend, identity, env = process.env }) {
   const staticDir = resolve(
     env.CHAOSOPS_STATIC_DIR || join(__dirname, '..', '..', 'kiosk-shell', 'dist')
   );
+
+  // The shell's origin, as the display server sees it when deciding whether
+  // it may be framed (see display-check.js).
+  const kioskOrigin = env.CHAOSOPS_KIOSK_ORIGIN || 'http://127.0.0.1:8080';
+  const DISPLAY_CHECK_TTL_MS = 20000;
+  let displayCheck = null; // { at, promise }
+  function cachedDisplayCheck() {
+    if (!displayCheck || Date.now() - displayCheck.at > DISPLAY_CHECK_TTL_MS) {
+      displayCheck = { at: Date.now(), promise: checkDisplay(displayUrl, { origin: kioskOrigin }) };
+    }
+    return displayCheck.promise;
+  }
 
   // SSE clients (kiosk-shell subscribes to /api/events for hotkey signals).
   const sseClients = new Set();
@@ -139,6 +152,9 @@ export function createApp({ backend, identity, env = process.env }) {
       }
       if (method === 'GET' && path === '/api/config') {
         return sendJson(res, 200, { displayUrl });
+      }
+      if (method === 'GET' && path === '/api/display-check') {
+        return sendJson(res, 200, { displayUrl, ...(await cachedDisplayCheck()) });
       }
       if (method === 'GET' && path === '/api/events') {
         res.writeHead(200, {

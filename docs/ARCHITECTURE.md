@@ -1,8 +1,10 @@
 # ChaosOps OS — Architecture Contract
 
 A single-purpose, locked-down Linux appliance whose **only** job is to boot straight
-into the ChaosOps kiosk display. Target hardware: **generic x86-64 mini-PC / NUC**.
-Deliverable: a **bootable image (ISO/USB, x86-64)** built reproducibly from this repo.
+into the ChaosOps kiosk display. Target hardware: **generic x86-64 mini-PC / NUC** (UEFI) and **Raspberry Pi 4**.
+Base OS: **Arch Linux** (Arch Linux ARM on the Pi) — ChaosOps OS is Arch plus a
+thin, declarative layer (`os/`). Deliverable: a **raw, `dd`-able disk image** per
+board, built reproducibly from this repo.
 
 The device must be un-escapable by a normal user: no desktop, no shell, no window
 chrome, no VT switching, no browser UI. Two global hotkeys are the only affordances.
@@ -11,8 +13,8 @@ chrome, no VT switching, no browser UI. Two global hotkeys are the only affordan
 
 ## Boot → run flow (what the user sees)
 
-1. **Power on** → GRUB hidden/branded, quiet boot (no kernel text).
-2. **Plymouth splash** → ChaosOps branded boot animation (logo + spinner), no console.
+1. **Power on** → systemd-boot with no menu/editor (Pi: firmware), quiet boot (no kernel text).
+2. **Plymouth splash** → animated ChaosOps boot (logo pop-in, progress bar with a hopping gremlin) in the light palette the kiosk UI uses; sleeping-gremlin animation on shutdown. No console.
 3. **Auto-login** to an unprivileged, restricted user → a Wayland kiosk compositor
    (`cage`) launches Chromium (kiosk flags) full-screen. Nothing else runs.
 4. Chromium opens the **local kiosk-shell** at `http://127.0.0.1:8080/`.
@@ -52,6 +54,9 @@ communicate across the boundary only through the contracts below.
     - `POST /api/forget` → drop saved connections (used by reset)
     - `GET  /api/onboarding` → `{ qrPayload, humanCode }` for the QR + code shown offline
     - `GET  /api/config` → `{ displayUrl }`
+    - `GET  /api/display-check` → `{ displayUrl, ok, reason?, detail? }` — can the shell
+      frame the display right now? (`reason`: `unreachable` | `http-error` | `frame-blocked`).
+      The shell only mounts the display iframe when `ok`, else shows a branded screen.
   - **NetworkManager** control via `nmcli` (device has NM installed; no AP/captive
     portal in v1 — on-device picker + QR that opens the same onboarding UX; keep the
     `qrPayload` field so an AP-onboarding flow can be added later without a UI change).
@@ -64,27 +69,26 @@ communicate across the boundary only through the contracts below.
     what the onboarding UI tells the user. Suggested: `Ctrl+Alt+W` (WiFi), `Ctrl+Alt+R`
     (reset) — must work under cage/Wayland (libinput). Document the mechanism.
 
-### `image/` + `os/`  — bootable image build + session/lockdown  (workstream A)
-- `image/`: reproducible builder for the x86-64 bootable image. Use **`debos`** or
-  `live-build` (Debian 12 minimal). Output an `.iso`/hybrid USB image. Document the
-  exact build command + host prereqs in `image/README.md`. Provide a Makefile target
-  `make image`. The build must be runnable on a Linux host (document that macOS needs
-  Docker/VM — provide a Dockerized build path so it runs anywhere).
-- `os/`: everything baked into the image:
-  - `os/plymouth/` — ChaosOps branded Plymouth theme (boot animation). Assets from the
-    design package logo/gremlins; keep it lightweight.
-  - `os/grub/` — hidden/branded GRUB (timeout 0, no menu, quiet splash).
-  - `os/cage/` — cage session: autologin unprivileged user, launch cage → Chromium
-    with kiosk hardening flags (`--kiosk --noerrdialogs --disable-pinch
-    --overscroll-history-navigation=0 --disable-features=TranslateUI` etc.), disable
-    context menu, disable Chromium keyboard shortcuts where possible.
-  - `os/systemd/` — units: `wifi-agent.service` (starts the agent), the kiosk session
-    target, ordering (agent before Chromium loads the page). Disable getty on all VTs,
-    disable VT switching (`kernel.sysrq=0`, mask `getty@`, `logind` config), no SSH by
-    default. Read-only-ish root where practical.
+### `image/` + `os/`  — Arch-based image build + session/lockdown  (workstream A)
+- `os/` is the ChaosOps layer on top of Arch — nothing else is custom:
+  - `os/packages/{common,<board>}.txt` — the only packages installed (from the
+    official Arch / Arch Linux ARM repos): `cage`, `chromium`, `plymouth`,
+    `networkmanager`, `nodejs`, `mesa`, kernel + firmware.
+  - `os/rootfs/` — overlay copied verbatim onto `/`: systemd units, logind /
+    sysctl / modprobe / polkit lockdown, PAM stack for the kiosk session, sysusers,
+    mkinitcpio config, Plymouth theme, cage/Chromium launcher + managed policy, and
+    the prebuilt kiosk-shell snapshot.
+  - `os/customize.sh` — runs in the target chroot: users, enable/mask units, lock
+    root, Plymouth theme, initramfs.
+- `image/build.sh <board>` — base tarball (Arch bootstrap → `pacstrap`, or the
+  Arch Linux ARM Pi tarball) → packages → overlay → customize → raw disk image
+  (`mkfs.ext4 -d`/mtools/sfdisk; no loop devices). Board specifics (partition
+  layout, bootloader, kernel cmdline) live in `image/boards/<board>.sh`.
+  `make image-<board>` wraps it in a privileged Docker container so it runs on any
+  Docker host; CI builds both boards natively.
 - Lockdown checklist lives in `os/README.md`: no TTYs, no Ctrl-Alt-Fn, no Chromium
-  address bar, no right-click, USB storage automount off, only the two hotkeys reach
-  the agent.
+  address bar, no right-click, USB storage off, no SSH, root locked, only the two
+  hotkeys reach the agent.
 
 ---
 

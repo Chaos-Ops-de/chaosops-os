@@ -2,7 +2,9 @@ node_modules/
 dist/
 *.iso
 *.img
-build/
+*.qcow2
+out/
+.work/
 .cache/
 .DS_Store
 **/.DS_Store

@@ -1,0 +1,224 @@
+// ChaosOps Plymouth boot splash — animated, in the design's light palette
+// (same cream background as the kiosk UI it hands over to).
+//
+// Boot:      the logo sticker pops in (overshoot + wobble) and then floats;
+//            a pill progress bar (white track, ink outline, amber fill)
+//            follows real boot progress with the loading gremlin hopping
+//            along its leading edge.
+// Shutdown:  logo + the sleeping gremlin, breathing, amber "z"s drifting up.
+//
+// Assets come from @chaos-ops-de/design via scripts/make-splash-assets.py.
+// Runs at Plymouth's 50 Hz refresh; per-frame Scale/Rotate is limited to the
+// short intro so it stays cheap on a Raspberry Pi.
+
+// --- Palette (design tokens/colors.ts, light) -------------------------------
+Window.SetBackgroundTopColor(1.0, 0.984, 0.906);      // bg #fffbe7
+Window.SetBackgroundBottomColor(1.0, 0.984, 0.906);
+
+W = Window.GetWidth();
+H = Window.GetHeight();
+mode = Plymouth.GetMode();
+shutting_down = (mode == "shutdown" || mode == "reboot");
+
+fun clamp01(x) { if (x < 0) return 0; if (x > 1) return 1; return x; }
+// easeOutBack: overshoots ~10% then settles — the "sticker slap".
+fun ease_out_back(x) {
+  c1 = 1.70158; c3 = c1 + 1; y = x - 1;
+  return 1 + c3 * y * y * y + c1 * y * y;
+}
+fun ease_out_cubic(x) { y = 1 - x; return 1 - y * y * y; }
+
+// --- Logo -------------------------------------------------------------------
+logo.src = Image("logo.png");
+logo.h = Math.Int(H * 0.26);
+logo.w = Math.Int(logo.h * logo.src.GetWidth() / logo.src.GetHeight());
+logo.base = logo.src.Scale(logo.w, logo.h);
+logo.cx = W / 2;
+logo.cy = H * 0.40;
+logo.sprite = Sprite();
+logo.sprite.SetZ(10);
+logo.sprite.SetOpacity(0);
+
+fun place_logo(img, dy) {
+  logo.sprite.SetImage(img);
+  logo.sprite.SetX(logo.cx - img.GetWidth() / 2);
+  logo.sprite.SetY(logo.cy - img.GetHeight() / 2 + dy);
+}
+
+// --- Progress bar (3-slice pieces, scaled to the screen) ---------------------
+bar.h = Math.Int(H * 0.034);
+if (bar.h < 18) bar.h = 18;
+bar.w = Math.Int(W * 0.34);
+if (bar.w < bar.h * 6) bar.w = bar.h * 6;
+bar.x = Math.Int(W / 2 - bar.w / 2);
+bar.y = Math.Int(logo.cy + logo.h / 2 + H * 0.12);
+bar.scale = bar.h / 48;                         // pieces are drawn at 48px
+cap = Math.Int(24 * bar.scale);
+
+fun slice_sprites(name, x, y, w, h, z) {
+  l = Image(name + "-l.png");
+  m = Image(name + "-m.png");
+  r = Image(name + "-r.png");
+  c = Math.Int(l.GetWidth() * h / l.GetHeight());
+  s.l = Sprite(l.Scale(c, h));
+  s.r = Sprite(r.Scale(c, h));
+  s.m = Sprite(m.Scale(w - 2 * c, h));
+  s.l.SetPosition(x, y, z);
+  s.m.SetPosition(x + c, y, z);
+  s.r.SetPosition(x + w - c, y, z);
+  s.cap = c;
+  return s;
+}
+
+track = slice_sprites("bar-track", bar.x, bar.y, bar.w, bar.h, 20);
+ring = slice_sprites("bar-ring", bar.x, bar.y, bar.w, bar.h, 22);
+
+// Fill: inset pill whose right cap rides the progress; the middle is
+// rescaled only when its whole-pixel width changes.
+inset = Math.Int((4 + 3) * bar.scale);
+fill.h = bar.h - 2 * inset;
+fill.x = bar.x + inset;
+fill.y = bar.y + inset;
+fill.max_w = bar.w - 2 * inset;
+fill.l_img = Image("bar-fill-l.png");
+fill.cap = Math.Int(fill.l_img.GetWidth() * fill.h / fill.l_img.GetHeight());
+fill.l = Sprite(fill.l_img.Scale(fill.cap, fill.h));
+fill.r = Sprite(Image("bar-fill-r.png").Scale(fill.cap, fill.h));
+fill.m_src = Image("bar-fill-m.png");
+fill.m = Sprite();
+fill.l.SetPosition(fill.x, fill.y, 21);
+fill.r.SetZ(21);
+fill.m.SetZ(21);
+fill.m_w = -1;
+
+fun set_fill(frac) {
+  w = Math.Int(2 * fill.cap + (fill.max_w - 2 * fill.cap) * clamp01(frac));
+  mid = w - 2 * fill.cap;
+  if (mid != fill.m_w) {
+    global.fill.m_w = mid;
+    if (mid > 0) {
+      fill.m.SetImage(fill.m_src.Scale(mid, fill.h));
+      fill.m.SetOpacity(1);
+    } else {
+      fill.m.SetOpacity(0);
+    }
+  }
+  fill.m.SetPosition(fill.x + fill.cap, fill.y, 21);
+  fill.r.SetPosition(fill.x + w - fill.cap, fill.y, 21);
+  return fill.x + w - fill.cap;       // leading-edge x (for the gremlin)
+}
+
+fun set_bar_opacity(o) {
+  track.l.SetOpacity(o); track.m.SetOpacity(o); track.r.SetOpacity(o);
+  ring.l.SetOpacity(o);  ring.m.SetOpacity(o);  ring.r.SetOpacity(o);
+  fill.l.SetOpacity(o);  fill.r.SetOpacity(o);
+  if (fill.m_w > 0) fill.m.SetOpacity(o);
+}
+
+// --- Gremlins -----------------------------------------------------------------
+rider.h = Math.Int(H * 0.11);
+rider.img = Image("gremlin-loading.png");
+rider.img = rider.img.Scale(Math.Int(rider.h * rider.img.GetWidth() / rider.img.GetHeight()), rider.h);
+rider.sprite = Sprite(rider.img);
+rider.sprite.SetZ(30);
+rider.sprite.SetOpacity(0);
+
+sleeper.h = Math.Int(H * 0.15);
+sleeper.src = Image("gremlin-sleep.png");
+sleeper.w = Math.Int(sleeper.h * sleeper.src.GetWidth() / sleeper.src.GetHeight());
+sleeper.sprite = Sprite();
+sleeper.sprite.SetZ(30);
+sleeper.cy = bar.y + bar.h / 2;
+
+dot.src = Image("dot.png");
+for (i = 0; i < 3; i++) {
+  zz[i].sprite = Sprite(dot.src.Scale(Math.Int(H * 0.012 + i * H * 0.004), Math.Int(H * 0.012 + i * H * 0.004)));
+  zz[i].sprite.SetZ(31);
+  zz[i].sprite.SetOpacity(0);
+}
+
+// --- State --------------------------------------------------------------------
+t = 0;               // frames since start (50 Hz)
+target = 0;          // boot progress from Plymouth (0..1)
+shown = 0;           // smoothed progress actually drawn
+INTRO = 40;          // logo pop-in length (0.8 s)
+
+set_bar_opacity(0);
+set_fill(0);
+
+fun progress_callback(duration, progress) {
+  if (progress > global.target) global.target = progress;
+}
+Plymouth.SetBootProgressFunction(progress_callback);
+
+fun refresh_callback() {
+  global.t++;
+
+  // Logo: pop + wobble during the intro, then a slow float.
+  if (t <= INTRO) {
+    k = t / INTRO;
+    s = ease_out_back(k);
+    if (s < 0.05) s = 0.05;
+    img = logo.base.Scale(Math.Int(logo.w * s), Math.Int(logo.h * s));
+    img = img.Rotate((1 - ease_out_cubic(k)) * -0.18);
+    place_logo(img, 0);
+    logo.sprite.SetOpacity(clamp01(k * 2.5));
+  } else {
+    if (t == INTRO + 1) global.logo.float_img = logo.base;
+    place_logo(logo.float_img, Math.Sin((t - INTRO) / 50 * 1.6) * H * 0.006);
+  }
+
+  if (shutting_down) {
+    // Sleeping gremlin breathes (slow vertical squash) and puffs out "z"s.
+    if (t % 4 == 0) {
+      b = 1 + Math.Sin(t / 50 * 2.2) * 0.035;
+      img = sleeper.src.Scale(sleeper.w, Math.Int(sleeper.h * b));
+      sleeper.sprite.SetImage(img);
+      sleeper.sprite.SetX(W / 2 - sleeper.w / 2);
+      sleeper.sprite.SetY(sleeper.cy + sleeper.h / 2 - img.GetHeight());
+    }
+    sleeper.sprite.SetOpacity(clamp01((t - 10) / 30));
+    for (i = 0; i < 3; i++) {
+      p = ((t + i * 40) % 120) / 120;                 // each z: 2.4 s cycle
+      zz[i].sprite.SetX(W / 2 + sleeper.w * 0.05 + p * H * 0.06 + Math.Sin(p * 6.28) * H * 0.008);
+      zz[i].sprite.SetY(sleeper.cy - sleeper.h * 0.25 - p * H * 0.12);
+      zz[i].sprite.SetOpacity(clamp01(Math.Sin(p * 3.14159)) * clamp01((t - 30) / 30));
+    }
+    return;
+  }
+
+  // Bar fades/slides in right after the logo lands.
+  appear = clamp01((t - INTRO * 0.6) / 25);
+  set_bar_opacity(appear);
+
+  // Ease toward real progress; creep slowly so the bar never looks frozen
+  // (Plymouth's estimate is coarse on the very first boot).
+  if (target > shown) global.shown = shown + (target - shown) * 0.06;
+  if (shown < 0.97) global.shown = shown + 0.0004;
+  edge = set_fill(shown);
+
+  // The gremlin hops along on the fill's leading edge.
+  hop = Math.Abs(Math.Sin(t / 50 * 5.5)) * H * 0.012;
+  rider.sprite.SetX(edge + fill.cap - rider.img.GetWidth() / 2);
+  rider.sprite.SetY(bar.y - rider.h * 0.92 - hop);
+  rider.sprite.SetOpacity(clamp01((t - INTRO * 0.8) / 25));
+}
+Plymouth.SetRefreshFunction(refresh_callback);
+
+// On hand-off the kiosk runs `plymouth quit --retain-splash`: jump the bar to
+// full so the frame left on screen reads "done".
+fun quit_callback() {
+  if (!shutting_down) {
+    edge = set_fill(1);
+    rider.sprite.SetX(edge + fill.cap - rider.img.GetWidth() / 2);
+  }
+}
+Plymouth.SetQuitFunction(quit_callback);
+
+// Keep the splash clean: no status text, never a prompt on the kiosk.
+fun message_callback(text) { }
+Plymouth.SetMessageFunction(message_callback);
+fun question_callback(prompt, entry) { }
+Plymouth.SetDisplayQuestionFunction(question_callback);
+fun password_callback(prompt, bullets) { }
+Plymouth.SetDisplayPasswordFunction(password_callback);

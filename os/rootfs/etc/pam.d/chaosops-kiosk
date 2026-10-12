@@ -1,0 +1,9 @@
+#%PAM-1.0
+# PAM stack for chaosops-kiosk.service. systemd never runs the auth stack for
+# PAMName= units; it only needs account + session so pam_systemd registers a
+# logind seat session (DRM/input access for cage) and creates XDG_RUNTIME_DIR.
+auth      required  pam_deny.so
+account   required  pam_unix.so
+session   required  pam_unix.so
+session   required  pam_systemd.so
+session   required  pam_limits.so
