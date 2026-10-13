@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client'
 import '@chaos-ops-de/design/web.css'
+import './fonts.css'
 import { ThemeProvider, CssVariables, memoryStorage } from '@chaos-ops-de/design'
 import { App } from './App'
 

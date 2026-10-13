@@ -1,0 +1,31 @@
+# Packages on every ChaosOps OS board (Arch Linux / Arch Linux ARM repos).
+# Deliberately minimal — an appliance, not a desktop: no display manager, no
+# window manager, no SSH, no shell tooling beyond what the kiosk needs.
+# One package per line; `#` comments and blank lines are ignored.
+
+base
+mkinitcpio
+e2fsprogs
+dosfstools
+cloud-guest-utils
+
+# Graphical kiosk: cage is a single-window Wayland compositor; Chromium is the
+# only client it ever runs. Mesa provides GBM/EGL/GLES for every GPU we target.
+cage
+chromium
+mesa
+ttf-dejavu
+noto-fonts
+
+# Branded boot: Plymouth owns the screen from the initramfs to the kiosk.
+plymouth
+
+# Networking: NetworkManager is what wifi-agent drives (nmcli, via polkit).
+networkmanager
+wpa_supplicant
+wireless-regdb
+polkit
+
+# wifi-agent + hotkeyd are plain Node with zero npm deps.
+nodejs
+curl

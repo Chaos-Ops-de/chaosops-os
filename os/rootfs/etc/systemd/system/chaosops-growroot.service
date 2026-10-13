@@ -1,0 +1,19 @@
+[Unit]
+Description=ChaosOps: grow the root partition + filesystem to fill the disk (first boot)
+# The shipped image is only as big as its contents; flashing it to a larger
+# disk/SD card leaves the rest unused until this runs once.
+ConditionPathExists=!/var/lib/chaosops-growroot/done
+DefaultDependencies=no
+After=local-fs.target
+Before=sysinit.target shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+StateDirectory=chaosops-growroot
+ExecStart=/usr/local/bin/chaosops-growroot
+ExecStartPost=/usr/bin/touch /var/lib/chaosops-growroot/done
+
+[Install]
+WantedBy=sysinit.target

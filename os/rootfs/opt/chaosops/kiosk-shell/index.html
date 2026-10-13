@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ChaosOps Kiosk</title>
+    <style>
+      html, body, #root { height: 100%; margin: 0; }
+      /* react-native-web Views size via flexbox; without this the App's
+         flex:1 root collapses to its content height. */
+      #root { display: flex; flex-direction: column; }
+      /* First paint before React mounts = the light palette bg the shell pins
+         (design tokens/colors.ts), so there's no white/black flash. */
+      html, body { background: #fffbe7; }
+      body { overflow: hidden; }
+    </style>
+    <script type="module" crossorigin src="/assets/index-hOyoVgJJ.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-FAWaQzz7.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

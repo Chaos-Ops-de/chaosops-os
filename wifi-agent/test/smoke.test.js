@@ -120,3 +120,68 @@ test('static: placeholder for empty dist, 404-free SPA behaviour', async () => {
   assert.equal((await fetch(base + '/some/spa/route')).status, 200);
   assert.equal((await fetch(base + '/api/nope')).status, 404);
 });
+
+// --- /api/display-check -------------------------------------------------------
+// A throwaway "display server" whose framing headers each test controls.
+import http from 'node:http';
+import { frameVerdict } from '../src/display-check.js';
+
+const ORIGIN = 'http://127.0.0.1:8080';
+const verdict = (h) => frameVerdict(new Headers(h), ORIGIN);
+
+test('frameVerdict — no framing headers is frameable', () => {
+  assert.deepEqual(verdict({}), { ok: true });
+});
+
+test('frameVerdict — X-Frame-Options blocks a cross-origin parent', () => {
+  assert.equal(verdict({ 'x-frame-options': 'SAMEORIGIN' }).reason, 'frame-blocked');
+  assert.equal(verdict({ 'x-frame-options': 'DENY' }).reason, 'frame-blocked');
+});
+
+test('frameVerdict — frame-ancestors allowing the kiosk wins over X-Frame-Options', () => {
+  const h = { 'content-security-policy': "default-src 'self'; frame-ancestors 'self' http://127.0.0.1:8080", 'x-frame-options': 'SAMEORIGIN' };
+  assert.deepEqual(verdict(h), { ok: true });
+  assert.deepEqual(verdict({ 'content-security-policy': 'frame-ancestors http://127.0.0.1:*' }), { ok: true });
+  assert.deepEqual(verdict({ 'content-security-policy': 'frame-ancestors *' }), { ok: true });
+});
+
+test('frameVerdict — frame-ancestors without the kiosk blocks', () => {
+  assert.equal(verdict({ 'content-security-policy': "frame-ancestors 'self'" }).reason, 'frame-blocked');
+  assert.equal(verdict({ 'content-security-policy': "frame-ancestors 'none'" }).reason, 'frame-blocked');
+  // Every enforced policy must allow it.
+  assert.equal(
+    verdict({ 'content-security-policy': 'frame-ancestors *, frame-ancestors https://chaos-ops.de' }).reason,
+    'frame-blocked',
+  );
+});
+
+test('GET /api/display-check — reports blocked, unreachable and ok displays', async () => {
+  let headers = {};
+  const display = http.createServer((req, res) => res.writeHead(200, headers).end('display'));
+  await new Promise((r) => display.listen(0, '127.0.0.1', r));
+  const displayUrl = `http://127.0.0.1:${display.address().port}/register-display`;
+  const agentFor = (url) =>
+    startServer({
+      CHAOSOPS_NM_BACKEND: 'mock',
+      CHAOSOPS_PORT: '0',
+      CHAOSOPS_STATE_DIR: mkdtempSync(join(tmpdir(), 'wifi-agent-test-')),
+      CHAOSOPS_STATIC_DIR: mkdtempSync(join(tmpdir(), 'wifi-agent-static-')),
+      CHAOSOPS_DISPLAY_URL: url,
+    });
+  const check = async (agent) => (await fetch(`http://127.0.0.1:${agent.port}/api/display-check`)).json();
+
+  headers = { 'x-frame-options': 'SAMEORIGIN' };
+  const blocked = await agentFor(displayUrl);
+  assert.equal((await check(blocked)).reason, 'frame-blocked');
+  blocked.server.close();
+
+  headers = { 'content-security-policy': "frame-ancestors 'self' http://127.0.0.1:8080" };
+  const ok = await agentFor(displayUrl);
+  assert.equal((await check(ok)).ok, true);
+  ok.server.close();
+
+  display.close();
+  const down = await agentFor(displayUrl);
+  assert.equal((await check(down)).reason, 'unreachable');
+  down.server.close();
+});

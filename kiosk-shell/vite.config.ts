@@ -56,6 +56,11 @@ function wifiAgentMock(): Plugin {
     if (url.startsWith('/api/config')) {
       return json(res, { displayUrl: 'https://app.chaos-ops.de/register-display' })
     }
+    if (url.startsWith('/api/display-check')) {
+      // Use { ok: false, reason: 'frame-blocked' } to preview the branded
+      // "Display unavailable" screen.
+      return json(res, { displayUrl: 'https://app.chaos-ops.de/register-display', ok: true })
+    }
     if (req.method === 'POST' && url.startsWith('/api/connect')) {
       let body = ''
       req.on('data', (c) => (body += c))

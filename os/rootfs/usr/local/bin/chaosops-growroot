@@ -1,0 +1,10 @@
+#!/bin/sh
+# Grow the partition holding / to the end of its disk, then the ext4 on it.
+# Both steps are online-safe and no-ops if there is nothing to grow.
+set -eu
+src=$(findmnt -no SOURCE /)
+disk=/dev/$(lsblk -no PKNAME "$src")
+part=$(cat "/sys/class/block/$(basename "$src")/partition")
+# growpart exits 1 with "NOCHANGE" when the partition already fills the disk.
+growpart "$disk" "$part" || true
+resize2fs "$src"

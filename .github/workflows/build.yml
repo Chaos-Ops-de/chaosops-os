@@ -4,12 +4,21 @@ on:
   push:
     branches: [main]
     paths:
-      - 'buildroot-external/**'
+      - 'os/**'
+      - 'image/**'
+      - 'wifi-agent/src/**'
       - '.github/workflows/build.yml'
-  workflow_dispatch: {}
-
-env:
-  BUILDROOT_REF: '2024.02.9'
+  pull_request:
+    paths:
+      - 'os/**'
+      - 'image/**'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+    inputs:
+      arch_snapshot:
+        description: 'Arch Linux Archive date (YYYY/MM/DD) for a reproducible x86_64 build; empty = live mirrors'
+        required: false
+        default: ''
 
 concurrency:
   group: build-${{ github.ref }}
@@ -19,144 +28,96 @@ permissions:
   contents: write
 
 jobs:
+  agent-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+        working-directory: wifi-agent
+
+  # Runs in parallel with agent-test; only the release waits for both.
   build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 350
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: x86_64            # ThinkCentre / NUC / generic Intel-AMD mini-PC (UEFI)
-            base: chaosops_x86_64_defconfig
-            build_image: chaosops-os-x86_64.img
-            release_image: chaosops-os-x86_64.img
-            legacy_iso: rootfs.iso9660   # ISOLINUX/El-Torito hybrid ISO: Legacy BIOS + v86
-            legacy_name: chaosops-os-x86_64-legacy.iso
-          - name: rpi4-64           # Raspberry Pi 4 / 400 (aarch64)
-            base: raspberrypi4_64_defconfig
-            build_image: sdcard.img
-            release_image: chaosops-os-rpi4-64.img
-            legacy_iso: ''
-            legacy_name: ''
-          - name: i686              # 32-bit Legacy-BIOS + browser emulators (v86 - copy.sh/v86
-            base: chaosops_i686_defconfig      # only supports 32-bit protected mode, no x86_64)
-            build_image: rootfs.iso9660
-            release_image: chaosops-os-i686-legacy.iso
-            legacy_iso: ''
-            legacy_name: ''
+          - board: x86_64          # NUC / ThinkCentre / generic Intel-AMD mini-PC (UEFI)
+            runner: ubuntu-24.04
+          - board: rpi4-aarch64    # Raspberry Pi 4 / 400 (Arch Linux ARM)
+            runner: ubuntu-24.04-arm   # native arm64: no qemu emulation needed
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    env:
+      WORK: ${{ github.workspace }}/.work/${{ matrix.board }}
+      PKGCACHE: ${{ github.workspace }}/.work/pkg-${{ matrix.board }}
+      OUT: ${{ github.workspace }}/out
+      ARCH_SNAPSHOT: ${{ inputs.arch_snapshot }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Free up disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
-            /usr/local/share/boost /usr/local/.ghcup "$AGENT_TOOLSDIRECTORY" || true
-          df -h /
-
-      - name: Install Buildroot host dependencies
+      - name: Install builder dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential git wget cpio unzip rsync bc file \
-            libncurses-dev python3 ccache dosfstools mtools \
-            libelf-dev libssl-dev flex bison
-          # libelf-dev: x86-64 kernel builds tools/objtool (ORC unwinder) which
-          #   needs <gelf.h>; without it the build dies at 'fatal error: gelf.h'.
-          # libssl-dev/flex/bison: standard Linux kernel host-build deps.
+            arch-install-scripts libarchive-tools curl zstd \
+            fdisk e2fsprogs dosfstools mtools
 
-      - name: Fetch Buildroot ${{ env.BUILDROOT_REF }}
-        run: |
-          git clone --depth 1 --branch "$BUILDROOT_REF" \
-            https://gitlab.com/buildroot.org/buildroot.git buildroot
-          echo "BR2_EXTERNAL=$GITHUB_WORKSPACE/buildroot-external" >> "$GITHUB_ENV"
+      - name: Cache key (ISO week)
+        id: week
+        run: echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
 
-      - name: Cache downloads + ccache
+      # Packages + base tarballs. pacman verifies every package and build.sh
+      # checksums the tarballs, so a stale cache only costs disk, never
+      # correctness. Re-keyed weekly so it tracks the rolling repos.
+      - name: Cache packages + base tarballs
         uses: actions/cache@v4
         with:
           path: |
-            buildroot/dl
-            ~/.buildroot-ccache
-          key: br-${{ env.BUILDROOT_REF }}-${{ matrix.name }}-${{ hashFiles('buildroot-external/configs/*') }}
-          restore-keys: |
-            br-${{ env.BUILDROOT_REF }}-${{ matrix.name }}-
+            .work/pkg-${{ matrix.board }}
+            .work/downloads
+          key: pacman-${{ matrix.board }}-${{ steps.week.outputs.week }}
+          restore-keys: pacman-${{ matrix.board }}-
 
-      - name: Configure (${{ matrix.name }})
-        working-directory: buildroot
+      - name: Build image (${{ matrix.board }})
         run: |
-          make BR2_EXTERNAL="$BR2_EXTERNAL" ${{ matrix.base }}
-          # Merge the shared ChaosOps userspace/branding fragment on top.
-          ./support/kconfig/merge_config.sh -m -O . .config \
-            "$BR2_EXTERNAL/configs/chaosops.frag"
-          make BR2_EXTERNAL="$BR2_EXTERNAL" olddefconfig
+          sudo --preserve-env=WORK,PKGCACHE,OUT,ARCH_SNAPSHOT \
+            CHAOSOPS_VERSION="$(date -u +%Y.%m.%d)-${GITHUB_SHA::7}" \
+            image/build.sh ${{ matrix.board }}
+          sudo chown -R "$(id -u):$(id -g)" .work/pkg-${{ matrix.board }} .work/downloads out
 
-      - name: Build (${{ matrix.name }})
-        working-directory: buildroot
-        run: make BR2_EXTERNAL="$BR2_EXTERNAL" BR2_JLEVEL=$(( $(nproc) + 1 ))
+      # zstd -10 on 4 cores: ~17 s for ~810 MB, vs ~4 min for xz -6 (~650 MB).
+      # Raspberry Pi Imager reads .img.zst directly; for dd:
+      #   zstd -dc chaosops-os-<board>.img.zst | sudo dd of=/dev/sdX bs=4M
+      - name: Compress
+        run: zstd -T0 -10 --rm out/chaosops-os-${{ matrix.board }}.img
 
-      - name: Show images
-        run: ls -lh buildroot/output/images/
-
-      - name: Rename image (${{ matrix.name }})
-        run: |
-          src="buildroot/output/images/${{ matrix.build_image }}"
-          dst="buildroot/output/images/${{ matrix.release_image }}"
-          # build_image == release_image for some targets; cp refuses a
-          # same-file copy, so only copy when the names actually differ.
-          [ "$src" = "$dst" ] || cp "$src" "$dst"
-
-      - name: Rename Legacy-BIOS/v86 ISO (${{ matrix.name }})
-        if: matrix.legacy_iso != ''
-        run: |
-          src="buildroot/output/images/${{ matrix.legacy_iso }}"
-          dst="buildroot/output/images/${{ matrix.legacy_name }}"
-          [ "$src" = "$dst" ] || cp "$src" "$dst"
-
-      - name: Upload image (${{ matrix.name }})
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: chaosops-os-${{ matrix.name }}
-          path: buildroot/output/images/${{ matrix.release_image }}
+          name: chaosops-os-${{ matrix.board }}
+          path: out/chaosops-os-${{ matrix.board }}.img.zst
           if-no-files-found: error
-          compression-level: 6
-
-      - name: Upload Legacy-BIOS/v86 ISO (${{ matrix.name }})
-        if: matrix.legacy_iso != ''
-        uses: actions/upload-artifact@v4
-        with:
-          name: chaosops-os-${{ matrix.name }}-legacy
-          path: buildroot/output/images/${{ matrix.legacy_name }}
-          if-no-files-found: error
-          compression-level: 6
+          compression-level: 0   # already zstd
+          retention-days: 14     # releases keep main's images; PR builds are throwaway
 
   release:
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: [agent-test, build]
+    runs-on: ubuntu-24.04
+    # Only main mints releases; branches/PRs just upload artifacts for testing.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     steps:
-      - name: Download built images
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
-          path: images
+          path: release
           pattern: chaosops-os-*
-          merge-multiple: false
+          merge-multiple: true
 
-      - name: Flatten and rename images
-        run: |
-          mkdir -p release
-          for dir in images/*/; do
-            name=$(basename "$dir")
-            file=$(find "$dir" -type f | head -n1)
-            ext="${file##*.}"
-            cp "$file" "release/${name}.${ext}"
-          done
-          ls -lh release/
-
-      - name: Create release
-        uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
           name: ChaosOps OS build ${{ github.run_number }}
           target_commitish: ${{ github.sha }}
-          files: release/*
+          files: release/*.img.zst
           generate_release_notes: true

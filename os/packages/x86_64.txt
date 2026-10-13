@@ -1,0 +1,7 @@
+# Generic x86-64 mini-PC / NUC / ThinkCentre (UEFI).
+linux
+linux-firmware
+intel-ucode
+amd-ucode
+# Hardware video decode for the display page on Intel Gen8+ (AMD VA-API ships in mesa).
+intel-media-driver

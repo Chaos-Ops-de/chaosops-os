@@ -3,13 +3,22 @@ import { View } from 'react-native'
 import { usePalette } from '@chaos-ops-de/design'
 import { OnboardingScreen } from './screens/OnboardingScreen'
 import { StatusScreen } from './screens/StatusScreen'
-import { connect, getConfig, getStatus, subscribeEvents, type Config, type Status } from './api'
+import { connect, getConfig, getDisplayCheck, getStatus, subscribeEvents, type Config, type DisplayCheck, type Status } from './api'
 
 const STATUS_POLL_MS = 3000
 // How long to wait for a connect to turn into an online status before we treat
 // it as failed (bad password, out of range, …). The agent reports failure by
 // staying offline, so we can't rely on an error field in production.
 const CONNECT_TIMEOUT_MS = 25000
+// While online, re-ask the agent whether the display can be framed. A failed
+// frame would otherwise show Chromium's own grey error page.
+const DISPLAY_CHECK_MS = 30000
+
+const DISPLAY_PROBLEM: Record<Exclude<DisplayCheck, { ok: true }>['reason'], string> = {
+  unreachable: 'We can’t reach ChaosOps right now. Retrying automatically.',
+  'http-error': 'ChaosOps isn’t answering properly right now. Retrying automatically.',
+  'frame-blocked': 'The ChaosOps display can’t be shown on this kiosk yet. Retrying automatically.',
+}
 
 export function App() {
   const palette = usePalette()
@@ -18,6 +27,7 @@ export function App() {
   const [menuOpen, setMenuOpen] = useState(() => window.location.hash === '#wifi')
   const [connecting, setConnecting] = useState<string | null>(null)
   const [connectError, setConnectError] = useState<string | null>(null)
+  const [displayCheck, setDisplayCheck] = useState<DisplayCheck | null>(null)
   const connectStartedAt = useRef(0)
 
   // One-shot config fetch (served locally by the agent, works offline too).
@@ -62,6 +72,26 @@ export function App() {
       setConnectError(connecting)
     }
   }, [status, connecting])
+
+  // Gate the display iframe on the agent's frame check while we're online.
+  const isOnline = Boolean(status?.online)
+  useEffect(() => {
+    if (!isOnline) {
+      setDisplayCheck(null)
+      return
+    }
+    let cancelled = false
+    const tick = () =>
+      getDisplayCheck()
+        .then((c) => !cancelled && setDisplayCheck(c))
+        .catch(() => {})
+    tick()
+    const t = setInterval(tick, DISPLAY_CHECK_MS)
+    return () => {
+      cancelled = true
+      clearInterval(t)
+    }
+  }, [isOnline])
 
   // Hotkey signals from the agent (WiFi chord / reset chord) + the /#wifi route.
   useEffect(() => {
@@ -117,14 +147,28 @@ export function App() {
     primary = <StatusScreen gremlin="loadingbar" title={`Connecting to ${connecting}…`} subtitle="Getting the kiosk online." />
   } else if (!status || !config) {
     primary = <StatusScreen gremlin="loadingbar" title="Starting ChaosOps…" />
+  } else if (online && !displayCheck) {
+    primary = <StatusScreen gremlin="loadingbar" title="Opening the ChaosOps display…" />
+  } else if (online && displayCheck && !displayCheck.ok) {
+    primary = <StatusScreen gremlin="down" title="Display unavailable" subtitle={DISPLAY_PROBLEM[displayCheck.reason]} />
   } else if (online) {
     // Online: the ChaosOps display owns the screen, but the kiosk-shell keeps
     // the top frame (via iframe) so the hotkey/SSE channel stays alive.
+    // Absolutely positioned: a percentage height inside a flex View collapses
+    // to the iframe default (150px).
     primary = (
       <iframe
         title="ChaosOps Display"
         src={config.displayUrl}
-        style={{ border: 'none', width: '100%', height: '100%', display: 'block' }}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          border: 'none',
+          width: '100%',
+          height: '100%',
+          display: 'block',
+          background: palette.bg,
+        }}
         allow="fullscreen"
       />
     )

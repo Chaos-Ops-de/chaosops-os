@@ -1,0 +1,9 @@
+# Raspberry Pi 4 / 400 (Arch Linux ARM). The Pi firmware boots the mainline
+# kernel directly (see image/boards/rpi4-aarch64.sh). U-Boot stays installed
+# as Arch Linux ARM's stock fallback boot path.
+linux-aarch64
+raspberrypi-bootloader
+firmware-raspberrypi
+uboot-raspberrypi
+# mkimage, to recompile the fallback /boot/boot.scr with the ChaosOps cmdline.
+uboot-tools

@@ -1,0 +1,3 @@
+# WiFi regulatory domain (channels / transmit power). ChaosOps devices ship
+# to Germany; change per deployment if needed.
+WIRELESS_REGDOM="DE"
