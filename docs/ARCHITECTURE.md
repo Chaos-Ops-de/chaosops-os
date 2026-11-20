@@ -43,7 +43,7 @@ communicate across the boundary only through the contracts below.
 - Config injected at runtime: `CHAOSOPS_DISPLAY_URL` (default
   `https://app.chaos-ops.de/register-display`), served via `/api/config`.
 - Design pkg source lives at `../chaosops-design` (workspace) — reference the existing
-  ChaosOps client kiosk pages under `../ChaosOps/src/pages/Display/*` for UX parity.
+  ChaosOps client kiosk pages under `../chaosops-app/src/pages/Display/*` for UX parity.
 
 ### `wifi-agent/`  — local network+control service  (workstream C)
 - Small service (Node 20, no heavy deps) run by systemd as a hardened unit. Owns:
